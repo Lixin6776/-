@@ -100,3 +100,31 @@ export async function getCurrentPlanSnapshot() {
   if (!response.ok) throw new Error("Failed to load current plan snapshot");
   return response.json();
 }
+
+export async function getLlmConnectionStatus() {
+  const response = await fetch(`${API_BASE}/api/llm-connection/status`);
+  if (!response.ok) throw new Error("Failed to load LLM connection status");
+  return response.json();
+}
+
+export async function saveLlmConnection(config: {
+  base_url: string;
+  model: string;
+  api_key: string;
+}) {
+  const response = await fetch(`${API_BASE}/api/llm-connection/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) throw new Error("Failed to save LLM connection");
+  return response.json();
+}
+
+export async function testLlmConnection() {
+  const response = await fetch(`${API_BASE}/api/llm-connection/test`, {
+    method: "POST"
+  });
+  if (!response.ok) throw new Error("LLM connection test failed");
+  return response.json();
+}

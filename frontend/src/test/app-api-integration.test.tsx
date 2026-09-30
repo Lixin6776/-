@@ -22,6 +22,19 @@ vi.mock("../lib/api", () => ({
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
   connectMonitor: vi.fn().mockReturnValue(() => undefined),
+  getLlmConnectionStatus: vi.fn().mockResolvedValue({
+    configured: false,
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    api_key_configured: false
+  }),
+  saveLlmConnection: vi.fn().mockResolvedValue({
+    configured: true,
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    api_key_configured: true
+  }),
+  testLlmConnection: vi.fn().mockResolvedValue({ ok: true, message: "大模型连接成功" }),
   getCurrentPlanSnapshot: vi.fn().mockResolvedValue({
     id: "plan-1",
     name: "计划 plan-1",

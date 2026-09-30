@@ -10,6 +10,7 @@ import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { ExecutionTimeline } from "./components/ExecutionTimeline";
 import { LiveMonitorPanel, type LiveMonitorEvent } from "./components/LiveMonitorPanel";
+import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
 import { PlanSnapshotPanel } from "./components/PlanSnapshotPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
 import {
@@ -113,6 +114,7 @@ export default function App() {
           <LiveMonitorPanel event={monitorEvent} />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
+          <LlmConnectionPanel />
           <ApiConnectionPanel
             configured={apiStatus.configured}
             providerPreference={apiStatus.provider_preference}

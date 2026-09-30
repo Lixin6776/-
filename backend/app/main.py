@@ -8,6 +8,7 @@ from app.api.actions import router as actions_router
 from app.api.api_connection import router as api_connection_router
 from app.api.chat import router as chat_router
 from app.api.learning import router as learning_router
+from app.api.llm_connection import router as llm_connection_router
 from app.api.monitor import router as monitor_router
 from app.api.plans import router as plans_router
 from app.api.profiles import router as profiles_router
@@ -19,6 +20,7 @@ from app.execution.cdp.factory import create_cdp_execution_provider
 from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable_snapshot
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
+from app.services.llm_config import load_llm_config
 from app.services.monitor import (
     AsyncMonitorService,
     MonitorProfile,
@@ -31,6 +33,7 @@ from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    load_llm_config(settings)
     Base.metadata.create_all(bind=engine)
 
     def current_profile() -> MonitorProfile:
@@ -122,6 +125,7 @@ app.include_router(api_connection_router)
 app.include_router(monitor_router)
 app.include_router(plans_router)
 app.include_router(learning_router)
+app.include_router(llm_connection_router)
 app.include_router(recommendations_router)
 
 
