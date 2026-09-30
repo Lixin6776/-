@@ -13,7 +13,9 @@ class CdpBrowserGateway:
         return self.browser
 
     async def close(self) -> None:
-        if self.browser is not None:
-            await self.browser.close()
+        # The debug browser belongs to the user. Stopping Playwright disconnects
+        # from it without terminating the user's Chrome/Edge process.
         if self._playwright is not None:
             await self._playwright.stop()
+        self.browser = None
+        self._playwright = None
