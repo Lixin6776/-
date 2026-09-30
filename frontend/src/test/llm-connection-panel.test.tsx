@@ -19,7 +19,11 @@ test("DeepSeek panel saves local configuration and tests connection", async () =
   });
   const test = vi.fn().mockResolvedValue({ ok: true, message: "大模型连接成功" });
 
-  render(<LlmConnectionPanel load={load} save={save} test={test} />);
+  const { container } = render(<LlmConnectionPanel load={load} save={save} test={test} />);
+
+  expect(
+    container.querySelector('datalist option[value="deepseek-v4-flash"]')
+  ).not.toBeNull();
 
   expect(await screen.findByText(/已配置：deepseek-chat/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("DeepSeek 模型"), {

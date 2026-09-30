@@ -89,14 +89,20 @@ export function LlmConnectionPanel({
       <form className="action-form" onSubmit={handleSave}>
         <label>
           模型
-          <select
+          <input
             aria-label="DeepSeek 模型"
+            list="deepseek-model-options"
             value={model}
             onChange={(event) => setModel(event.target.value)}
-          >
-            <option value="deepseek-chat">deepseek-chat</option>
-            <option value="deepseek-reasoner">deepseek-reasoner</option>
-          </select>
+            placeholder="deepseek-chat"
+            required
+          />
+          <datalist id="deepseek-model-options">
+            <option value="deepseek-chat" />
+            <option value="deepseek-reasoner" />
+            <option value="deepseek-v4-flash" />
+            <option value="deepseek-v4-pro" />
+          </datalist>
         </label>
         <label>
           API Key
