@@ -9,7 +9,7 @@ import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { ExecutionTimeline } from "./components/ExecutionTimeline";
-import { LiveMonitorPanel, type LiveMonitorEvent } from "./components/LiveMonitorPanel";
+import { type LiveMonitorEvent } from "./components/LiveMonitorPanel";
 import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
 import { PlanSnapshotPanel } from "./components/PlanSnapshotPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
@@ -111,6 +111,7 @@ export default function App() {
       <main className="workspace">
         <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
+          <PlanSnapshotPanel event={monitorEvent} />
           <InvestmentStrategyPanel
             onCreated={(value) =>
               setProfile({
@@ -120,8 +121,6 @@ export default function App() {
               })
             }
           />
-          <PlanSnapshotPanel />
-          <LiveMonitorPanel event={monitorEvent} />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
           <LlmConnectionPanel />

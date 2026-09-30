@@ -17,13 +17,32 @@ test("plan snapshot panel displays read-only plan data", async () => {
     orders: 747
   });
 
-  render(<PlanSnapshotPanel load={load} />);
+  render(
+    <PlanSnapshotPanel
+      load={load}
+      event={{
+        captured_at: "2026-09-30T20:15:00+08:00",
+        freshness: "fresh",
+        level: "normal",
+        reason: "指标正常",
+        source: "cdp",
+        metrics: {
+          roi: 1.86,
+          gpm: 3081.75,
+          spend: 59246.58,
+          gmv: 109600,
+          orders: 699,
+          online_viewers: 45
+        }
+      }}
+    />
+  );
 
+  expect(await screen.findByText("直播大屏")).toBeInTheDocument();
   expect(await screen.findByText(/9,999,999/)).toBeInTheDocument();
   expect(screen.getByText("2.60")).toBeInTheDocument();
-  expect(screen.getByText("1.87")).toBeInTheDocument();
-  expect(screen.getByText(/60,778.54/)).toBeInTheDocument();
-  expect(screen.getByText(/113,586.29/)).toBeInTheDocument();
-  expect(screen.getByText("747")).toBeInTheDocument();
+  expect(screen.getByText("1.86")).toBeInTheDocument();
+  expect(screen.getByText(/59,246.58/)).toBeInTheDocument();
+  expect(screen.getByText("45")).toBeInTheDocument();
   expect(screen.getByText("投放中")).toBeInTheDocument();
 });
