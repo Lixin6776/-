@@ -108,10 +108,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <StrategyBanner profile={profile} />
+      <PlanSnapshotPanel event={monitorEvent} />
       <main className="workspace">
         <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
-          <PlanSnapshotPanel event={monitorEvent} />
           <InvestmentStrategyPanel
             onCreated={(value) =>
               setProfile({

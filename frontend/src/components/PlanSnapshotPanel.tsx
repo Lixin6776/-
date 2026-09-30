@@ -76,48 +76,48 @@ export function PlanSnapshotPanel({
     void refresh();
   }, []);
 
-  const rows = [
-    ["支付ROI", formatRatio(live?.roi ?? plan?.roi)],
-    ["消耗", formatCurrency(live?.spend ?? plan?.spend)],
-    ["成交", formatCurrency(live?.gmv ?? plan?.gmv)],
-    ["订单", formatNumber(live?.orders ?? plan?.orders)],
-    ["GPM", formatCurrency(live?.gpm)],
-    ["在线人数", formatNumber(live?.online_viewers)],
-    ["计划预算", formatCurrency(plan?.budget)],
-    ["目标ROI", formatRatio(plan?.roi_goal)]
+  const metrics = [
+    ["综合营销ROI", formatRatio(live?.roi ?? plan?.roi)],
+    ["综合成本(元)", formatCurrency(live?.spend ?? plan?.spend)],
+    ["净成交金额(元)", formatCurrency(live?.gmv ?? plan?.gmv)],
+    ["整体成交订单数", formatNumber(live?.orders ?? plan?.orders)],
+    ["GPM(元)", formatCurrency(live?.gpm)],
+    ["实时在线人数", formatNumber(live?.online_viewers)]
   ];
 
   return (
-    <section className="panel plan-snapshot-panel live-dashboard-panel">
-      <div className="panel-heading plan-snapshot-heading">
-        <div>
-          <p className="eyebrow">Live dashboard</p>
-          <h2>直播大屏</h2>
+    <section className="byte-live-dashboard">
+      <header className="byte-live-header">
+        <div className="byte-live-title">
+          <span className="byte-live-dot" />
+          直播大屏
         </div>
-        <button className="button-outline" type="button" onClick={refresh} disabled={loading}>
+        <div className="byte-live-meta">
+          <span>{plan?.name ?? "计划暂无法读取"}</span>
+          {plan?.account_name ? <span>{plan.account_name}</span> : null}
+          {plan ? <span>{statusLabels[plan.status] ?? plan.status}</span> : null}
+          <span>{sourceLabel(event?.source)}</span>
+          <span>{event?.captured_at ? new Date(event.captured_at).toLocaleString("zh-CN") : "尚未读取"}</span>
+        </div>
+        <button className="button-outline byte-refresh-button" type="button" onClick={refresh} disabled={loading}>
           {loading ? "读取中" : "刷新"}
         </button>
-      </div>
-      <div className="monitor-meta">
-        <span>{plan?.name ?? "计划暂无法读取"}</span>
-        {plan?.account_name ? <span>{plan.account_name}</span> : null}
-        {plan ? <span>{statusLabels[plan.status] ?? plan.status}</span> : null}
-        <span>{sourceLabel(event?.source)}</span>
-        <span>数据新鲜度：{event?.freshness ?? "等待中"}</span>
-        <time>{event?.captured_at ? new Date(event.captured_at).toLocaleString("zh-CN") : "尚未读取"}</time>
-      </div>
-      {error ? <p className="monitor-signal monitor-signal-action">{error}</p> : null}
-      <div className="metric-grid">
-        {rows.map(([label, value]) => (
-          <article className="metric-card" key={label}>
+      </header>
+      {error ? <p className="byte-dashboard-error">{error}</p> : null}
+      <div className="byte-live-metrics">
+        {metrics.map(([label, value]) => (
+          <article className="byte-metric-card" key={label}>
             <span>{label}</span>
             <strong>{value}</strong>
           </article>
         ))}
       </div>
-      <p className={`monitor-signal monitor-signal-${event?.level ?? "normal"}`}>
-        {event?.reason ?? "等待首次直播监控结果"}
-      </p>
+      <footer className="byte-live-footer">
+        <span>计划预算：{formatCurrency(plan?.budget)}</span>
+        <span>目标ROI：{formatRatio(plan?.roi_goal)}</span>
+        <span>数据新鲜度：{event?.freshness ?? "等待中"}</span>
+        <span>{event?.reason ?? "等待首次直播监控结果"}</span>
+      </footer>
     </section>
   );
 }
