@@ -6,6 +6,7 @@ from app.execution.base import (
     VerificationResult,
 )
 from app.services.action_registry import ActionEnvelope, ActionName
+from app.services.api_client import ApiError
 from app.services.api_endpoint_map import EndpointMap
 
 
@@ -26,14 +27,19 @@ class ApiExecutionProvider:
         return PreflightResult(ok=True, before=before)
 
     async def execute(self, action: ActionEnvelope) -> ExecutionResult:
+        from app.execution.base import UnknownExecutionState
+
         request = self.endpoints.build(action, self.advertiser_id)
-        before = await self.preflight(action)
-        if not before.ok:
-            raise ValueError(before.message)
-        self.client.request(request.method, request.path, json=request.payload)
-        after = {}
-        if action.action_name != ActionName.CREATE_PLAN:
-            after = self.read_provider.get_plan(action.target_id).model_dump()
+        try:
+            before = await self.preflight(action)
+            if not before.ok:
+                raise ValueError(before.message)
+            self.client.request(request.method, request.path, json=request.payload)
+            after = {}
+            if action.action_name != ActionName.CREATE_PLAN:
+                after = self.read_provider.get_plan(action.target_id).model_dump()
+        except ApiError as exc:
+            raise UnknownExecutionState(str(exc)) from exc
         return ExecutionResult(
             action={
                 "action_name": action.action_name.value,
@@ -43,7 +49,6 @@ class ApiExecutionProvider:
             before=before.before,
             after=after,
         )
-
     async def verify(
         self,
         action: ActionEnvelope,
