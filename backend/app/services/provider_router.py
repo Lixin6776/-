@@ -29,3 +29,5 @@ class ProviderRouter:
         if self.cdp_provider is None:
             raise RuntimeError("No execution provider is available")
         return ProviderSelection(name="cdp", provider=self.cdp_provider)
+    def can_fallback(self, mutation_started: bool) -> bool:
+        return not mutation_started and self.cdp_provider is not None
