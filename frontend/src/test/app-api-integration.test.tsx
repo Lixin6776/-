@@ -14,6 +14,8 @@ vi.mock("../lib/api", () => ({
     freshness: "fresh"
   }),
   sendChat: vi.fn().mockResolvedValue({ kind: "analysis", message: "当前 ROI 为 2.5。" }),
+  getExecutionJobs: vi.fn().mockResolvedValue([]),
+  createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
   connectMonitor: vi.fn().mockReturnValue(() => undefined)
 }));
 

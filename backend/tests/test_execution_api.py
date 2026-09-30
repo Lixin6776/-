@@ -33,3 +33,24 @@ def test_execute_endpoint_creates_pending_job(client, db_session, preview):
     jobs = client.get("/api/actions/jobs").json()
     assert len(jobs) == 1
     assert jobs[0]["confirmation_id"] == confirmation.id
+
+def test_confirmation_creation_recomputes_preview(client, profile):
+    client.app.state.plan_snapshot_provider = lambda target_id: PlanSnapshot(
+        id=target_id,
+        name="计划 A",
+        status="active",
+        budget=1000,
+    )
+    response = client.post(
+        "/api/actions/confirmations",
+        json={
+            "action": {
+                "action_name": "update_plan_budget",
+                "target_id": "plan-1",
+                "params": {"budget": 800},
+            }
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["status"] == "pending"
+    assert response.json()["action_name"] == "update_plan_budget"

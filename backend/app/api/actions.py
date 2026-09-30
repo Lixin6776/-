@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
-from app.schemas import ExecutionJobRead
+from app.schemas import ExecutionJobRead, PendingConfirmationRead
 from app.services.action_planner import ActionPlanner, ActionPreview
 from app.services.action_registry import ActionEnvelope
 from app.services.confirmations import ConfirmationService
@@ -21,6 +21,10 @@ class ActionPreviewRequest(BaseModel):
     action: ActionEnvelope
 
 
+class ActionConfirmationRequest(BaseModel):
+    action: ActionEnvelope
+
+
 @router.post("/preview", response_model=ActionPreview)
 def preview_action(
     payload: ActionPreviewRequest,
@@ -30,6 +34,24 @@ def preview_action(
     profile = StrategyProfileService(db).get_active()
     snapshot = get_plan_snapshot(request, payload.action.target_id)
     return ActionPlanner().preflight(payload.action, profile, snapshot)
+
+
+@router.post(
+    "/confirmations",
+    response_model=PendingConfirmationRead,
+    status_code=201,
+)
+def create_action_confirmation(
+    payload: ActionConfirmationRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    profile = StrategyProfileService(db).get_active()
+    snapshot = get_plan_snapshot(request, payload.action.target_id)
+    preview = ActionPlanner().preflight(payload.action, profile, snapshot)
+    if not preview.allowed:
+        raise HTTPException(status_code=409, detail=preview.blockers)
+    return ConfirmationService(db).create_from_preview(preview)
 
 
 @router.post(

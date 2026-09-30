@@ -2,6 +2,9 @@ import { FormEvent, useState } from "react";
 
 export type ActionPreview = {
   action_name: string;
+  target_id: string;
+  normalized_params: Record<string, unknown>;
+  constraints?: Record<string, unknown>;
   target_name: string;
   diff: Record<string, unknown>;
   blockers: string[];
