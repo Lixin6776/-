@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
@@ -17,6 +18,15 @@ from app.services.execution import ExecutionService
 from app.services.profiles import StrategyProfileService
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
+
+
+def _ensure_writes_enabled() -> None:
+    if settings.read_only_mode:
+        raise HTTPException(
+            status_code=423,
+            detail="Write actions are disabled in read-only mode",
+        )
+
 def _load_plan_for_action(request: Request, action: ActionEnvelope) -> PlanSnapshot:
     if action.action_name == ActionName.CREATE_PLAN:
         return PlanSnapshot(
@@ -72,6 +82,7 @@ def create_action_confirmation(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
+    _ensure_writes_enabled()
     profile = StrategyProfileService(db).get_active()
     snapshot = _load_plan_for_action(request, payload.action)
     preview = ActionPlanner().preflight(payload.action, profile, snapshot)
@@ -104,6 +115,7 @@ def batch_confirmations(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
+    _ensure_writes_enabled()
     profile = StrategyProfileService(db).get_active()
     plans = {
         action.target_id: _load_plan_or_missing(request, action.target_id)
@@ -126,6 +138,7 @@ async def execute_confirmation(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
+    _ensure_writes_enabled()
     confirmation_service = ConfirmationService(db)
     confirmation = confirmation_service.get(confirmation_id)
     if confirmation is None:

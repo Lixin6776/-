@@ -93,3 +93,26 @@ def test_preview_endpoint_supports_create_plan(client, profile):
     )
     assert response.status_code == 200
     assert response.json()["allowed"] is True
+
+def test_read_only_mode_blocks_confirmation_creation(client, profile, monkeypatch):
+    from app.api import actions as actions_module
+
+    monkeypatch.setattr(actions_module.settings, "read_only_mode", True)
+    client.app.state.plan_snapshot_provider = lambda target_id: PlanSnapshot(
+        id=target_id,
+        name="计划 A",
+        status="active",
+        budget=1000,
+    )
+    response = client.post(
+        "/api/actions/confirmations",
+        json={
+            "action": {
+                "action_name": "update_plan_budget",
+                "target_id": "plan-1",
+                "params": {"budget": 800},
+            }
+        },
+    )
+    assert response.status_code == 423
+    assert "read-only" in response.json()["detail"]

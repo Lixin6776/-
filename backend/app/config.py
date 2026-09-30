@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     monitor_source: str = "cdp"
     monitor_interval_seconds: int = 300
     live_board_page_marker: str = "board-next"
+    read_only_mode: bool = False
     cdp_endpoint: str = "http://127.0.0.1:9222"
     selector_config_path: str = ".local/selectors/qianchuan.json"
     api_base_url: str = "https://api.oceanengine.com"
