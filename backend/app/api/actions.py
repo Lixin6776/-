@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
 from app.schemas import ExecutionJobRead
-from app.services.action_planner import ActionPlanner, ActionPreview, PlanSnapshot
+from app.services.action_planner import ActionPlanner, ActionPreview
 from app.services.action_registry import ActionEnvelope
 from app.services.confirmations import ConfirmationService
 from app.services.profiles import StrategyProfileService
@@ -19,17 +19,6 @@ router = APIRouter(prefix="/api/actions", tags=["actions"])
 
 class ActionPreviewRequest(BaseModel):
     action: ActionEnvelope
-
-
-def get_plan_snapshot(request: Request, target_id: str) -> PlanSnapshot:
-    provider: Callable[[str], PlanSnapshot] | None = getattr(
-        request.app.state,
-        "plan_snapshot_provider",
-        None,
-    )
-    if provider is None:
-        raise HTTPException(status_code=503, detail="Plan snapshot provider is not configured")
-    return provider(target_id)
 
 
 @router.post("/preview", response_model=ActionPreview)

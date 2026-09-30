@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { ChatPanel } from "./components/ChatPanel";
+import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { LiveMonitorPanel } from "./components/LiveMonitorPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
@@ -17,6 +17,7 @@ const fallbackProfile: StrategyBannerProfile = {
 
 export default function App() {
   const [profile, setProfile] = useState<StrategyBannerProfile>(fallbackProfile);
+  const [, setSelectedPreview] = useState<ActionPreview | null>(null);
 
   useEffect(() => {
     getActiveProfile()
@@ -25,16 +26,19 @@ export default function App() {
     return connectMonitor(() => undefined);
   }, []);
 
-  async function handleSend(message: string) {
+  async function handleSend(message: string): Promise<ChatReply> {
     const result = await sendChat(message);
-    return result.message as string;
+    return {
+      message: result.message as string,
+      preview: result.preview as ActionPreview | undefined
+    };
   }
 
   return (
     <div className="app-shell">
       <StrategyBanner profile={profile} />
       <main className="workspace">
-        <ChatPanel onSend={handleSend} />
+        <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
           <LiveMonitorPanel />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />

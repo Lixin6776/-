@@ -1,11 +1,33 @@
 import { FormEvent, useState } from "react";
 
+export type ActionPreview = {
+  action_name: string;
+  target_name: string;
+  diff: Record<string, unknown>;
+  blockers: string[];
+  strategy_profile_version: number;
+  expires_at: string;
+  requires_confirmation: boolean;
+};
+
+export type ChatReply = {
+  message: string;
+  preview?: ActionPreview;
+};
+
 type Message = {
   role: "system" | "user" | "assistant";
   content: string;
+  preview?: ActionPreview;
 };
 
-export function ChatPanel({ onSend }: { onSend?: (message: string) => Promise<string> }) {
+export function ChatPanel({
+  onSend,
+  onOpenConfirmation
+}: {
+  onSend?: (message: string) => Promise<ChatReply>;
+  onOpenConfirmation?: (preview: ActionPreview) => void;
+}) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -23,8 +45,11 @@ export function ChatPanel({ onSend }: { onSend?: (message: string) => Promise<st
     setMessages((current) => [...current, { role: "user", content: message }]);
     setPending(true);
     try {
-      const response = await onSend(message);
-      setMessages((current) => [...current, { role: "assistant", content: response }]);
+      const reply = await onSend(message);
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", content: reply.message, preview: reply.preview }
+      ]);
     } catch {
       setMessages((current) => [
         ...current,
@@ -46,6 +71,20 @@ export function ChatPanel({ onSend }: { onSend?: (message: string) => Promise<st
           <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
             <span>{message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}</span>
             <p>{message.content}</p>
+            {message.preview ? (
+              <div className="action-preview-card">
+                <strong>{message.preview.target_name}</strong>
+                <span>{message.preview.action_name}</span>
+                <pre>{JSON.stringify(message.preview.diff, null, 2)}</pre>
+                <button
+                  className="button-outline"
+                  type="button"
+                  onClick={() => onOpenConfirmation?.(message.preview!)}
+                >
+                  查看并确认
+                </button>
+              </div>
+            ) : null}
           </article>
         ))}
       </div>
