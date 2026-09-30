@@ -36,7 +36,10 @@ class Orchestrator:
         context = (
             f"{strategy_context}; "
             f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}; "
-            f"read_only_context={json.dumps(read_only_context, ensure_ascii=False, default=str)}"
+            f"read_only_context={json.dumps(read_only_context, ensure_ascii=False, default=str)}; "
+            '请优先输出 JSON：{"kind":"analysis|recommendation|question|error",'
+            '"message":"给用户看的中文回答","preview":null}。'
+            "如果不方便输出 JSON，也可以直接输出自然语言分析。"
         )
         response = await self.llm.complete(
             [
@@ -49,6 +52,9 @@ class Orchestrator:
             payload = json.loads(response.content)
             result = ChatResult.model_validate(payload)
         except (json.JSONDecodeError, ValidationError):
+            text = response.content.strip()
+            if text:
+                return ChatResult(kind="analysis", message=text)
             return ChatResult(kind="error", message="模型返回格式无效，请重试。")
         if result.kind not in self.ALLOWED_KINDS:
             return ChatResult(kind="error", message="模型返回了不支持的操作类型。")

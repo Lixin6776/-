@@ -7,11 +7,11 @@ from app.services.orchestrator import Orchestrator
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_rejects_malformed_model_data(profile):
-    llm = FakeLLMProvider(content="not-json")
+async def test_orchestrator_accepts_plain_text_model_data(profile):
+    llm = FakeLLMProvider(content="当前 ROI 正常。")
     result = await Orchestrator(llm).handle("看看今天的ROI", profile)
-    assert result.kind == "error"
-    assert result.message == "模型返回格式无效，请重试。"
+    assert result.kind == "analysis"
+    assert result.message == "当前 ROI 正常。"
 
 
 @pytest.mark.asyncio
