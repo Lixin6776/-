@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     api_access_token: SecretStr = SecretStr("")
     api_refresh_token: SecretStr = SecretStr("")
     api_token_expires_at: int = 0
+    api_advertiser_id: int = 0
 
     @property
     def api_configured(self) -> bool:

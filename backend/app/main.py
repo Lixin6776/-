@@ -12,9 +12,13 @@ from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
 from app.config import settings
 from app.db import Base, SessionLocal, engine
+from app.execution.api_provider import ApiExecutionProvider
 from app.execution.cdp.factory import create_cdp_execution_provider
+from app.services.action_registry import ActionName
+from app.services.api_client import OceanEngineApiClient
 from app.services.monitor import MonitorProfile, MonitorService
 from app.services.profiles import StrategyProfileService
+from app.services.provider_router import ProviderRouter
 
 
 @asynccontextmanager
@@ -39,14 +43,39 @@ async def lifespan(application: FastAPI):
                 hard_constraints=profile.hard_constraints,
             )
 
+    async def execution_provider_factory(action_name: str | None = None):
+        async def close_noop():
+            return None
+
+        api_actions = {
+            ActionName.PAUSE_PLAN,
+            ActionName.ENABLE_PLAN,
+            ActionName.UPDATE_PLAN_BUDGET,
+        }
+        if settings.api_configured and settings.api_advertiser_id:
+            router = ProviderRouter(
+                api_provider=ApiExecutionProvider(
+                    OceanEngineApiClient(config=settings),
+                    advertiser_id=settings.api_advertiser_id,
+                ),
+                cdp_provider=None,
+                api_configured=True,
+                api_actions=api_actions,
+            )
+            if action_name in {action.value for action in api_actions}:
+                return router.choose(action_name).provider, close_noop
+
+        provider, close = await create_cdp_execution_provider(
+            settings.cdp_endpoint,
+            Path(settings.selector_config_path),
+        )
+        return provider, close
+
     application.state.monitor_service = MonitorService(
         Path(settings.monitor_fixture_path),
         profile_provider=current_profile,
     )
-    application.state.execution_provider_factory = lambda: create_cdp_execution_provider(
-        settings.cdp_endpoint,
-        Path(settings.selector_config_path),
-    )
+    application.state.execution_provider_factory = execution_provider_factory
     yield
 
 
