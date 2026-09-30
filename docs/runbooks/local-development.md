@@ -3,7 +3,7 @@
 1. Install backend dependencies with `pip install -e ".[dev]"`.
 2. Install frontend dependencies with `pnpm install --dir frontend`.
 3. Start the stack with `scripts/start-dev.ps1`.
-4. Start the dedicated browser with `scripts/start-chrome-cdp.ps1`.
+4. Start the dedicated browser with `scripts/start-chrome-cdp.ps1` in its own terminal and keep that terminal open while using CDP.
 5. Log in to Qianchuan manually in that browser.
 6. Run the CDP page probe and inspect `page.html` and `page.png`.
 7. Use fixture mode until selectors are calibrated against the captured page.

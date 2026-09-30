@@ -9,9 +9,9 @@ if (-not $chrome) { throw "Chrome executable not found." }
 $profile = Join-Path $env:LOCALAPPDATA "QianchuanAssistantChrome"
 New-Item -ItemType Directory -Force -Path $profile | Out-Null
 
-Start-Job -ScriptBlock {
-  & $using:chrome "--remote-debugging-address=127.0.0.1" `
-    "--remote-debugging-port=9222" `
-    "--user-data-dir=$using:profile" `
-    "https://qianchuan.jinritemai.com/"
-} | Out-Null
+Write-Output "Starting Qianchuan browser on 127.0.0.1:9222. Keep this terminal open until you close Chrome."
+& $chrome `
+  "--remote-debugging-address=127.0.0.1" `
+  "--remote-debugging-port=9222" `
+  "--user-data-dir=$profile" `
+  "https://qianchuan.jinritemai.com/"

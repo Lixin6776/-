@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,7 +21,7 @@ class ConfirmationCreate(BaseModel):
 def create_confirmation(
     payload: ConfirmationCreate,
     request: Request,
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> PendingConfirmation:
     profile = StrategyProfileService(db).get_active()
     if profile.version != payload.profile_version:

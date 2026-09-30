@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -26,11 +27,11 @@ class FakePage:
 
 
 class FakeContext:
-    pages = [FakePage()]
+    pages: ClassVar[list[FakePage]] = [FakePage()]
 
 
 class FakeBrowser:
-    contexts = [FakeContext()]
+    contexts: ClassVar[list[FakeContext]] = [FakeContext()]
 
 
 class FakeGateway:

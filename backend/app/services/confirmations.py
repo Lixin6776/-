@@ -1,7 +1,7 @@
 import hashlib
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -40,7 +40,7 @@ class ConfirmationService:
             action=action,
             preview_hash=self._hash(action),
             strategy_profile_version=profile.version,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=self.ttl_minutes),
+            expires_at=datetime.now(UTC) + timedelta(minutes=self.ttl_minutes),
         )
         self._records[confirmation.id] = confirmation
         return confirmation
@@ -54,7 +54,7 @@ class ConfirmationService:
         confirmation = self._records.get(confirmation_id)
         if confirmation is None or confirmation.status != "pending":
             return False
-        if confirmation.expires_at <= datetime.now(timezone.utc):
+        if confirmation.expires_at <= datetime.now(UTC):
             return False
         if confirmation.strategy_profile_version != profile_version:
             return False

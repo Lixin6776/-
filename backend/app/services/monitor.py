@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -34,7 +34,7 @@ class MonitorService:
         metrics = AnalyticsService().compute(snapshot)
         signal = self.detector.evaluate(metrics, metrics, stale=snapshot.freshness != "fresh")
         return MonitorEvent(
-            captured_at=datetime.now(timezone.utc),
+            captured_at=datetime.now(UTC),
             freshness=snapshot.freshness,
             banner=f"当前策略画像 v{self.profile_version}；大方向=稳定放量；ROI >= 2.5",
             level=signal.level,

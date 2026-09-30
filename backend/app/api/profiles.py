@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,12 +11,12 @@ router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
 @router.post("/versions", response_model=StrategyProfileRead, status_code=201)
-def create_profile(payload: StrategyProfileCreate, db: Session = Depends(get_db)):
+def create_profile(payload: StrategyProfileCreate, db: Annotated[Session, Depends(get_db)]):
     return StrategyProfileService(db).create_version(payload)
 
 
 @router.get("/active", response_model=StrategyProfileRead)
-def active_profile(db: Session = Depends(get_db)):
+def active_profile(db: Annotated[Session, Depends(get_db)]):
     try:
         return StrategyProfileService(db).get_active()
     except LookupError as exc:

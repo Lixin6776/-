@@ -1,9 +1,9 @@
 import pytest
 
-from app.services.llm.fake import FakeLLMProvider
-from app.services.orchestrator import Orchestrator
 from app.api.chat import get_llm_provider
 from app.main import app
+from app.services.llm.fake import FakeLLMProvider
+from app.services.orchestrator import Orchestrator
 
 
 @pytest.mark.asyncio
@@ -30,3 +30,14 @@ def test_chat_api_returns_schema_validated_result(client, profile):
     response = client.post("/api/chat", json={"message": "当前策略是什么"})
     assert response.status_code == 200
     assert response.json() == {"kind": "analysis", "message": "API 已读取策略画像。"}
+
+class FailingLLMProvider:
+    async def complete(self, messages, tools):
+        raise RuntimeError("provider down")
+
+
+def test_chat_api_returns_safe_error_when_provider_fails(client, profile):
+    app.dependency_overrides[get_llm_provider] = lambda: FailingLLMProvider()
+    response = client.post("/api/chat", json={"message": "看看今天的ROI"})
+    assert response.status_code == 200
+    assert response.json() == {"kind": "error", "message": "模型服务不可用，请检查本地配置。"}

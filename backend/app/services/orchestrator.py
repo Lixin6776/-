@@ -1,4 +1,5 @@
 import json
+from typing import ClassVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -12,7 +13,7 @@ class ChatResult(BaseModel):
 
 
 class Orchestrator:
-    ALLOWED_KINDS = {"analysis", "recommendation", "question", "error"}
+    ALLOWED_KINDS: ClassVar[set[str]] = {"analysis", "recommendation", "question", "error"}
 
     def __init__(self, llm: LLMProvider) -> None:
         self.llm = llm
