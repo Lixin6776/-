@@ -70,3 +70,9 @@ def preview():
         preview_hash="hash-1",
         idempotency_key="idem-1",
     )
+
+@pytest.fixture
+def plan_snapshot():
+    from app.services.action_planner import PlanSnapshot
+
+    return PlanSnapshot(id="plan-1", name="计划 A", status="active", budget=1000)
