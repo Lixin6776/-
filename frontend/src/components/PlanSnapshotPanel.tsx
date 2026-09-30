@@ -8,6 +8,10 @@ export type PlanSnapshot = {
   status: string;
   budget: number;
   roi_goal: number | null;
+  roi?: number | null;
+  spend?: number | null;
+  gmv?: number | null;
+  orders?: number | null;
 };
 
 const statusLabels: Record<string, string> = {
@@ -74,6 +78,22 @@ export function PlanSnapshotPanel({
             <article className="metric-card">
               <span>ROI 目标</span>
               <strong>{plan.roi_goal === null ? "--" : plan.roi_goal.toFixed(2)}</strong>
+            </article>
+            <article className="metric-card">
+              <span>ROI</span>
+              <strong>{plan.roi === null || plan.roi === undefined ? "--" : plan.roi.toFixed(2)}</strong>
+            </article>
+            <article className="metric-card">
+              <span>消耗</span>
+              <strong>{plan.spend === null || plan.spend === undefined ? "--" : `\u00a5${numberFormat.format(plan.spend)}`}</strong>
+            </article>
+            <article className="metric-card">
+              <span>成交</span>
+              <strong>{plan.gmv === null || plan.gmv === undefined ? "--" : `\u00a5${numberFormat.format(plan.gmv)}`}</strong>
+            </article>
+            <article className="metric-card">
+              <span>订单</span>
+              <strong>{plan.orders === null || plan.orders === undefined ? "--" : numberFormat.format(plan.orders)}</strong>
             </article>
           </div>
         </>

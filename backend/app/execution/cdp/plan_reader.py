@@ -20,6 +20,18 @@ STATUS_MAP = {
 }
 
 
+def _optional_number_after(text: str, label: str) -> float | None:
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() != label:
+            continue
+        for candidate in lines[index + 1 : index + 8]:
+            match = re.search(r"([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)", candidate)
+            if match is not None:
+                return float(match.group(1).replace(",", ""))
+    return None
+
+
 def parse_plan_detail_text(text: str, plan_id: str) -> PlanSnapshot:
     if f"计划ID：{plan_id}" not in text:
         raise ValueError(f"Plan ID not found in page: {plan_id}")
@@ -52,6 +64,14 @@ def parse_plan_detail_text(text: str, plan_id: str) -> PlanSnapshot:
         status=status,
         budget=budget,
         roi_goal=roi_goal,
+        roi=_optional_number_after(text, "综合营销ROI"),
+        spend=_optional_number_after(text, "综合成本(元)"),
+        gmv=_optional_number_after(text, "净成交金额(元)"),
+        orders=(
+            int(orders)
+            if (orders := _optional_number_after(text, "整体成交订单数")) is not None
+            else None
+        ),
     )
 
 
@@ -181,7 +201,7 @@ class CdpPlanReader:
   const targetId = {target};
   for (let index = 0; index < 50; index += 1) {{
     const text = document.body ? document.body.innerText : "";
-    if (text.includes("计划ID：" + targetId)) {{
+    if (text.includes("计划ID：" + targetId) && text.includes("综合营销ROI")) {{
       return {{ok: true, text, url: location.href}};
     }}
     await new Promise((resolve) => setTimeout(resolve, 400));

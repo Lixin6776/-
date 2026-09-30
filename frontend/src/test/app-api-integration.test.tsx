@@ -27,7 +27,11 @@ vi.mock("../lib/api", () => ({
     name: "计划 plan-1",
     status: "active",
     budget: 1000,
-    roi_goal: 2.6
+    roi_goal: 2.6,
+    roi: 1.87,
+    spend: 60778.54,
+    gmv: 113586.29,
+    orders: 747
   })
 }));
 
