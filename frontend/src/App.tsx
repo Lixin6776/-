@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { ActionParameterForm } from "./components/ActionParameterForm";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
@@ -72,6 +73,10 @@ export default function App() {
           <LiveMonitorPanel />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
+          <details className="panel advanced-actions">
+            <summary>高级投放操作</summary>
+            <ActionParameterForm actionName="copy_plan" onSubmit={() => undefined} />
+          </details>
         </aside>
       </main>
       {selectedPreview ? (
