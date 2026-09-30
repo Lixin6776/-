@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/components/chatpanel.tsx","./src/components/decisionpanel.tsx","./src/components/livemonitorpanel.tsx","./src/components/strategybanner.tsx","./src/lib/api.ts","./src/test/setup.ts","./src/test/strategy-banner.test.tsx"],"errors":true,"version":"5.9.3"}

@@ -12,3 +12,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
