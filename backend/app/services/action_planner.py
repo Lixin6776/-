@@ -29,6 +29,7 @@ class PlanSnapshot(BaseModel):
     status: str
     budget: float
     bid: float | None = None
+    roi_goal: float | None = None
     targeting: dict = {}
     schedule: dict = {}
     materials: list[str] = []

@@ -16,6 +16,7 @@ from app.db import Base, SessionLocal, engine
 from app.execution.api_provider import ApiExecutionProvider
 from app.execution.cdp.factory import create_cdp_execution_provider
 from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable_snapshot
+from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
 from app.services.monitor import (
     AsyncMonitorService,
@@ -101,6 +102,7 @@ async def lifespan(application: FastAPI):
             profile_provider=current_profile,
         )
     application.state.execution_provider_factory = execution_provider_factory
+    application.state.plan_snapshot_provider = CdpPlanReader(settings.cdp_endpoint).read
     yield
 
 

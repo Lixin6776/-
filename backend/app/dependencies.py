@@ -13,4 +13,7 @@ def get_plan_snapshot(request: Request, target_id: str) -> PlanSnapshot:
     )
     if provider is None:
         raise HTTPException(status_code=503, detail="Plan snapshot provider is not configured")
-    return provider(target_id)
+    try:
+        return provider(target_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
