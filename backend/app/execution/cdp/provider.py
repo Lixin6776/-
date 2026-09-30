@@ -72,6 +72,28 @@ class CdpExecutionProvider:
             plan = await self.adapter.get_plan(action.target_id)
         except (KeyError, ValueError) as exc:
             return PreflightResult(ok=False, before={}, message=str(exc))
+        if action.action_name == ActionName.BIND_EXISTING_MATERIAL:
+            material_id = action.params["material_id"]
+            if material_id not in plan.available_materials:
+                return PreflightResult(
+                    ok=False,
+                    before=plan.model_dump(),
+                    message="material not available",
+                )
+            if material_id in plan.materials:
+                return PreflightResult(
+                    ok=False,
+                    before=plan.model_dump(),
+                    message="material already bound",
+                )
+        if action.action_name == ActionName.UNBIND_EXISTING_MATERIAL:
+            material_id = action.params["material_id"]
+            if material_id not in plan.materials:
+                return PreflightResult(
+                    ok=False,
+                    before=plan.model_dump(),
+                    message="material is not bound",
+                )
         return PreflightResult(ok=True, before=plan.model_dump())
     async def execute(self, action: ActionEnvelope) -> ExecutionResult:
         async with self._write_lock:
@@ -135,10 +157,15 @@ class CdpExecutionProvider:
         elif action.action_name == ActionName.UPDATE_SCHEDULE:
             expected["schedule"] = action.params["schedule"]
         elif action.action_name == ActionName.BIND_EXISTING_MATERIAL:
-            expected["materials"] = [*current.get("materials", []), action.params["material_id"]]
+            expected["materials"] = [
+                *result.before.get("materials", []),
+                action.params["material_id"],
+            ]
         elif action.action_name == ActionName.UNBIND_EXISTING_MATERIAL:
             expected["materials"] = [
-                item for item in current.get("materials", []) if item != action.params["material_id"]
+                item
+                for item in result.before.get("materials", [])
+                if item != action.params["material_id"]
             ]
         return VerificationResult(
             ok=current == expected,
