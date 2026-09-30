@@ -13,3 +13,11 @@ def test_live_selector_config_is_valid_when_enabled():
     config = SelectorConfig.load(Path(".local/selectors/qianchuan.json"))
     assert config.plan_status_toggle
     assert config.budget_save_button
+    assert config.create_plan_button
+    assert config.copy_plan_button
+    assert config.delete_plan_button
+    assert config.bid_input
+    assert config.targeting_editor
+    assert config.schedule_editor
+    assert config.material_bind_button
+    assert config.material_unbind_button

@@ -16,6 +16,23 @@ class SelectorConfig(BaseModel):
     budget_save_button: str
     confirmation_dialog: str
     confirmation_submit: str
+    create_plan_button: str
+    plan_form_name: str
+    plan_form_budget: str
+    plan_form_roi_goal: str
+    plan_form_submit: str
+    copy_plan_button: str
+    delete_plan_button: str
+    delete_confirm_input: str
+    delete_confirm_submit: str
+    edit_plan_button: str
+    edit_field_container: str
+    bid_input: str
+    targeting_editor: str
+    schedule_editor: str
+    material_picker: str
+    material_bind_button: str
+    material_unbind_button: str
 
     @classmethod
     def load(cls, path: Path) -> "SelectorConfig":

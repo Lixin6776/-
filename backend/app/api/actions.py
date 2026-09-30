@@ -10,13 +10,33 @@ from app.db import get_db
 from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
 from app.schemas import ExecutionJobRead, PendingConfirmationRead
-from app.services.action_planner import ActionPlanner, ActionPreview
-from app.services.action_registry import ActionEnvelope
+from app.services.action_planner import ActionPlanner, ActionPreview, PlanSnapshot
+from app.services.action_registry import ActionEnvelope, ActionName
 from app.services.confirmations import ConfirmationService
 from app.services.execution import ExecutionService
 from app.services.profiles import StrategyProfileService
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
+def _load_plan_for_action(request: Request, action: ActionEnvelope) -> PlanSnapshot:
+    if action.action_name == ActionName.CREATE_PLAN:
+        return PlanSnapshot(
+            id=action.target_id,
+            name=str(action.params.get("name", "新计划")),
+            status="new",
+            budget=0,
+        )
+    return _load_plan_or_missing(request, action.target_id)
+
+def _load_plan_or_missing(request: Request, target_id: str) -> PlanSnapshot:
+    try:
+        return get_plan_snapshot(request, target_id)
+    except (KeyError, ValueError):
+        return PlanSnapshot(
+            id=target_id,
+            name="未知计划",
+            status="missing",
+            budget=0,
+        )
 
 
 class ActionPreviewRequest(BaseModel):
@@ -27,6 +47,10 @@ class ActionConfirmationRequest(BaseModel):
     action: ActionEnvelope
 
 
+class BatchActionRequest(BaseModel):
+    actions: list[ActionEnvelope]
+
+
 @router.post("/preview", response_model=ActionPreview)
 def preview_action(
     payload: ActionPreviewRequest,
@@ -34,7 +58,7 @@ def preview_action(
     db: Annotated[Session, Depends(get_db)],
 ) -> ActionPreview:
     profile = StrategyProfileService(db).get_active()
-    snapshot = get_plan_snapshot(request, payload.action.target_id)
+    snapshot = _load_plan_for_action(request, payload.action)
     return ActionPlanner().preflight(payload.action, profile, snapshot)
 
 
@@ -49,11 +73,47 @@ def create_action_confirmation(
     db: Annotated[Session, Depends(get_db)],
 ):
     profile = StrategyProfileService(db).get_active()
-    snapshot = get_plan_snapshot(request, payload.action.target_id)
+    snapshot = _load_plan_for_action(request, payload.action)
     preview = ActionPlanner().preflight(payload.action, profile, snapshot)
     if not preview.allowed:
         raise HTTPException(status_code=409, detail=preview.blockers)
     return ConfirmationService(db).create_from_preview(preview)
+
+
+@router.post("/batch-preview", response_model=list[ActionPreview])
+def batch_preview(
+    payload: BatchActionRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    profile = StrategyProfileService(db).get_active()
+    plans = {
+        action.target_id: _load_plan_or_missing(request, action.target_id)
+        for action in payload.actions
+    }
+    return ActionPlanner().preflight_batch(payload.actions, profile, plans)
+
+
+@router.post(
+    "/batch-confirmations",
+    response_model=list[PendingConfirmationRead],
+    status_code=201,
+)
+def batch_confirmations(
+    payload: BatchActionRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    profile = StrategyProfileService(db).get_active()
+    plans = {
+        action.target_id: _load_plan_or_missing(request, action.target_id)
+        for action in payload.actions
+    }
+    previews = ActionPlanner().preflight_batch(payload.actions, profile, plans)
+    if any(not preview.allowed for preview in previews):
+        raise HTTPException(status_code=409, detail="Batch preflight failed")
+    service = ConfirmationService(db)
+    return [service.create_from_preview(preview) for preview in previews]
 
 
 @router.post(

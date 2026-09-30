@@ -185,3 +185,11 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
 .execution-timeline li { display: grid; gap: 2px; }
 .execution-timeline li span { color: var(--color-text-secondary); }
 .execution-timeline time { color: var(--color-text-secondary); font-size: 12px; }
+.action-form { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.action-form label { display: grid; gap: var(--space-1); color: var(--color-text-secondary); }
+.action-form input {
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+}
+.acknowledgement { display: flex; gap: var(--space-2); align-items: center; margin: var(--space-4) 0; }

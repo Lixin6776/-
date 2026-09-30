@@ -68,3 +68,28 @@ def test_execute_endpoint_runs_configured_provider(client, db_session, preview):
     jobs = client.get("/api/actions/jobs").json()
     assert len(jobs) == 1
     assert jobs[0]["confirmation_id"] == confirmation.id
+
+def test_preview_endpoint_supports_create_plan(client, profile):
+    profile.allowed_actions = [*profile.allowed_actions, "create_plan"]
+
+    def missing_provider(target_id):
+        raise KeyError(target_id)
+
+    client.app.state.plan_snapshot_provider = missing_provider
+    response = client.post(
+        "/api/actions/preview",
+        json={
+            "action": {
+                "action_name": "create_plan",
+                "target_id": "new",
+                "params": {
+                    "source_product_id": "product-1",
+                    "name": "新计划",
+                    "budget": 500,
+                    "roi_goal": 2.5,
+                },
+            }
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["allowed"] is True
