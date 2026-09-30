@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -155,7 +156,9 @@ class QianchuanPageAdapter:
         before = (await self.get_plan(action.target_id)).model_dump()
         row = self._row(action.target_id)
         await row.locator(self.config.edit_plan_button).click()
-        await row.locator(selector).fill(str(changed[next(iter(changed))]))
+        value = changed[next(iter(changed))]
+        serialized = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)
+        await row.locator(selector).fill(serialized)
         await self.page.locator(self.config.plan_form_submit).click()
         await self._submit_confirmation_if_present()
         return ActionAttempt(ok=True, before=before, after={**before, **changed})

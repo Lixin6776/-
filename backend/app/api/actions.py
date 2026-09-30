@@ -11,12 +11,22 @@ from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
 from app.schemas import ExecutionJobRead, PendingConfirmationRead
 from app.services.action_planner import ActionPlanner, ActionPreview, PlanSnapshot
-from app.services.action_registry import ActionEnvelope
+from app.services.action_registry import ActionEnvelope, ActionName
 from app.services.confirmations import ConfirmationService
 from app.services.execution import ExecutionService
 from app.services.profiles import StrategyProfileService
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
+def _load_plan_for_action(request: Request, action: ActionEnvelope) -> PlanSnapshot:
+    if action.action_name == ActionName.CREATE_PLAN:
+        return PlanSnapshot(
+            id=action.target_id,
+            name=str(action.params.get("name", "新计划")),
+            status="new",
+            budget=0,
+        )
+    return _load_plan_or_missing(request, action.target_id)
+
 def _load_plan_or_missing(request: Request, target_id: str) -> PlanSnapshot:
     try:
         return get_plan_snapshot(request, target_id)
@@ -48,7 +58,7 @@ def preview_action(
     db: Annotated[Session, Depends(get_db)],
 ) -> ActionPreview:
     profile = StrategyProfileService(db).get_active()
-    snapshot = get_plan_snapshot(request, payload.action.target_id)
+    snapshot = _load_plan_for_action(request, payload.action)
     return ActionPlanner().preflight(payload.action, profile, snapshot)
 
 
@@ -63,7 +73,7 @@ def create_action_confirmation(
     db: Annotated[Session, Depends(get_db)],
 ):
     profile = StrategyProfileService(db).get_active()
-    snapshot = get_plan_snapshot(request, payload.action.target_id)
+    snapshot = _load_plan_for_action(request, payload.action)
     preview = ActionPlanner().preflight(payload.action, profile, snapshot)
     if not preview.allowed:
         raise HTTPException(status_code=409, detail=preview.blockers)
