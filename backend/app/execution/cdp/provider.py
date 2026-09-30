@@ -1,6 +1,8 @@
 import asyncio
 from typing import ClassVar, Protocol
 
+from pydantic import ValidationError
+
 from app.execution.base import (
     CancelResult,
     ExecutionResult,
@@ -8,7 +10,7 @@ from app.execution.base import (
     VerificationResult,
 )
 from app.execution.cdp.page_adapter import ActionAttempt, PlanPageSnapshot
-from app.services.action_registry import ActionEnvelope, ActionName
+from app.services.action_registry import ActionEnvelope, ActionName, ActionRegistry
 
 
 class PageAdapter(Protocol):
@@ -59,6 +61,11 @@ class CdpExecutionProvider:
         self.adapter = adapter
 
     async def preflight(self, action: ActionEnvelope) -> PreflightResult:
+        definition = ActionRegistry.default().get(action.action_name)
+        try:
+            definition.input_model.model_validate({"target_id": action.target_id, **action.params})
+        except ValidationError as exc:
+            return PreflightResult(ok=False, before={}, message=str(exc))
         if action.action_name == ActionName.CREATE_PLAN:
             return PreflightResult(ok=True, before={})
         try:
@@ -66,7 +73,6 @@ class CdpExecutionProvider:
         except (KeyError, ValueError) as exc:
             return PreflightResult(ok=False, before={}, message=str(exc))
         return PreflightResult(ok=True, before=plan.model_dump())
-
     async def execute(self, action: ActionEnvelope) -> ExecutionResult:
         async with self._write_lock:
             attempt = await self._execute_attempt(action)
