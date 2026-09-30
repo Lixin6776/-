@@ -22,7 +22,7 @@ test("DeepSeek panel saves local configuration and tests connection", async () =
   const { container } = render(<LlmConnectionPanel load={load} save={save} test={test} />);
 
   expect(
-    container.querySelector('datalist option[value="deepseek-v4-flash"]')
+    container.querySelector('select option[value="deepseek-v4-flash"]')
   ).not.toBeNull();
 
   expect(await screen.findByText(/已配置：deepseek-chat/)).toBeInTheDocument();
