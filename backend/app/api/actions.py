@@ -1,3 +1,4 @@
+import inspect
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,6 +13,7 @@ from app.schemas import ExecutionJobRead, PendingConfirmationRead
 from app.services.action_planner import ActionPlanner, ActionPreview
 from app.services.action_registry import ActionEnvelope
 from app.services.confirmations import ConfirmationService
+from app.services.execution import ExecutionService
 from app.services.profiles import StrategyProfileService
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
@@ -59,8 +61,9 @@ def create_action_confirmation(
     response_model=ExecutionJobRead,
     status_code=202,
 )
-def execute_confirmation(
+async def execute_confirmation(
     confirmation_id: str,
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
     confirmation_service = ConfirmationService(db)
@@ -71,20 +74,27 @@ def execute_confirmation(
     existing = db.scalar(
         select(ExecutionJob).where(ExecutionJob.confirmation_id == confirmation_id)
     )
-    if existing is not None:
+    if existing is not None and existing.status in ExecutionService.TERMINAL_STATUSES:
         return existing
 
-    if not confirmation_service.claim(confirmation_id):
-        raise HTTPException(status_code=409, detail="Confirmation is not executable")
+    provider_factory = getattr(request.app.state, "execution_provider_factory", None)
+    if provider_factory is None:
+        raise HTTPException(status_code=503, detail="Execution provider is not configured")
+    try:
+        provider, close = await provider_factory()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    try:
+        service = ExecutionService(provider, confirmation_service, db)
+        record = await service.run_confirmation(confirmation_id)
+    finally:
+        close_result = close()
+        if inspect.isawaitable(close_result):
+            await close_result
 
-    job = ExecutionJob(
-        confirmation_id=confirmation.id,
-        action_name=confirmation.action_name,
-        status="pending",
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+    job = db.get(ExecutionJob, record.job_id)
+    if job is None:
+        raise HTTPException(status_code=500, detail="Execution job was not persisted")
     return job
 
 

@@ -11,6 +11,7 @@ from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
 from app.config import settings
 from app.db import Base, SessionLocal, engine
+from app.execution.cdp.factory import create_cdp_execution_provider
 from app.services.monitor import MonitorProfile, MonitorService
 from app.services.profiles import StrategyProfileService
 
@@ -18,6 +19,7 @@ from app.services.profiles import StrategyProfileService
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     Base.metadata.create_all(bind=engine)
+
     def current_profile() -> MonitorProfile:
         with SessionLocal() as session:
             try:
@@ -39,6 +41,10 @@ async def lifespan(application: FastAPI):
     application.state.monitor_service = MonitorService(
         Path(settings.monitor_fixture_path),
         profile_provider=current_profile,
+    )
+    application.state.execution_provider_factory = lambda: create_cdp_execution_provider(
+        settings.cdp_endpoint,
+        Path(settings.selector_config_path),
     )
     yield
 
