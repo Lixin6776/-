@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from app.config import Settings
 from app.execution.api_provider import ApiExecutionProvider
@@ -80,3 +81,23 @@ def test_mutation_started_disables_cdp_fallback():
     )
     assert router.can_fallback(mutation_started=False) is True
     assert router.can_fallback(mutation_started=True) is False
+
+@pytest.mark.asyncio
+async def test_api_mutation_failure_is_unknown_not_retried():
+    from app.execution.api_provider import ApiExecutionProvider
+    from app.execution.base import UnknownExecutionState
+    from app.services.action_registry import ActionEnvelope, ActionName
+    from app.services.api_client import ApiAuthenticationError
+
+    class FailingClient:
+        def request(self, method, path, params=None, json=None):
+            raise ApiAuthenticationError("refresh failed")
+
+    provider = ApiExecutionProvider(FailingClient(), advertiser_id=123)
+    action = ActionEnvelope(
+        action_name=ActionName.PAUSE_PLAN,
+        target_id="plan-1",
+        params={},
+    )
+    with pytest.raises(UnknownExecutionState):
+        await provider.execute(action)
