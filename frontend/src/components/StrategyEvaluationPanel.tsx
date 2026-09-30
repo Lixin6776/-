@@ -27,7 +27,7 @@ export function StrategyEvaluationPanel({ evaluation }: { evaluation: Evaluation
       </div>
       <div className="metric-grid">
         <article className="metric-card">
-          <span>样本 24</span>
+          <span>样本量</span>
           <strong>{evaluation.sample_size}</strong>
         </article>
         <article className="metric-card">

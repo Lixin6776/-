@@ -68,7 +68,10 @@ def accept_suggestion(
         business_direction=active.business_direction,
         primary_objective=active.primary_objective,
         secondary_objectives=active.secondary_objectives,
-        hard_constraints=active.hard_constraints,
+        hard_constraints={
+            **active.hard_constraints,
+            "learning_adjustments": suggestion.proposed_change,
+        },
         monitoring_config=active.monitoring_config,
         allowed_actions=active.allowed_actions,
         notification_policy=active.notification_policy,

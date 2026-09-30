@@ -14,6 +14,7 @@ test("evaluation panel shows sample size and confidence", () => {
       }}
     />
   );
-  expect(screen.getByText(/样本 24/)).toBeInTheDocument();
+  expect(screen.getByText("样本量")).toBeInTheDocument();
+  expect(screen.getByText("24")).toBeInTheDocument();
   expect(screen.getByText(/高置信度/)).toBeInTheDocument();
 });

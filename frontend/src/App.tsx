@@ -19,6 +19,7 @@ import {
   getLearningCases,
   getLearningEvaluations,
   getLearningSuggestions,
+  decideLearningSuggestion,
   previewAction,
   sendChat
 } from "./lib/api";
@@ -79,6 +80,12 @@ export default function App() {
     setSelectedPreview(preview as ActionPreview);
   }
 
+  async function decideSuggestion(id: string, decision: "accept" | "reject") {
+    const updated = await decideLearningSuggestion(id, decision);
+    setSuggestions((current) =>
+      current.map((item) => (item.id === id ? updated : item))
+    );
+  }
   async function confirmAction(preview: ActionPreview) {
     const confirmation = await createActionConfirmation({
       action_name: preview.action_name,
@@ -102,7 +109,12 @@ export default function App() {
           <LearningCaseList cases={learningCases} />
           {evaluations[0] ? <StrategyEvaluationPanel evaluation={evaluations[0]} /> : null}
           {suggestions.map((item) => (
-            <StrategySuggestionCard key={item.id} suggestion={item} onAccept={() => undefined} onReject={() => undefined} />
+            <StrategySuggestionCard
+              key={item.id}
+              suggestion={item}
+              onAccept={(id) => decideSuggestion(id, "accept")}
+              onReject={(id) => decideSuggestion(id, "reject")}
+            />
           ))}
           <details className="panel advanced-actions">
             <summary>高级投放操作</summary>
