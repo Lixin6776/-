@@ -26,6 +26,7 @@ TARGET_MUST_MATCH = {
 class PlanSnapshot(BaseModel):
     id: str
     name: str
+    account_name: str | None = None
     status: str
     budget: float
     bid: float | None = None

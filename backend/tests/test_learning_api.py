@@ -51,7 +51,7 @@ def test_chat_can_include_learning_context(client, profile, db_session):
     app.dependency_overrides[get_llm_provider] = lambda: CapturingProvider()
     response = client.post(
         "/api/chat",
-        json={"message": "为什么这个策略有效", "include_learning_context": True},
+        json={"message": "为什么需要学习记录", "include_learning_context": True},
     )
     assert response.status_code == 200
     assert any("learning_context" in message.content for message in captured)

@@ -55,12 +55,15 @@ def parse_plan_detail_text(text: str, plan_id: str) -> PlanSnapshot:
     else:
         budget = float(budget_match.group(1).replace(",", ""))
 
+    account_match = re.search(r"抖音号：\s*([^\r\n]+)", text)
+    account_name = account_match.group(1).strip() if account_match is not None else None
     roi_match = re.search(r"综合营销ROI目标：\s*([0-9]+(?:\.[0-9]+)?)", text)
     roi_goal = float(roi_match.group(1)) if roi_match is not None else None
 
     return PlanSnapshot(
         id=plan_id,
         name=f"计划 {plan_id}",
+        account_name=account_name,
         status=status,
         budget=budget,
         roi_goal=roi_goal,

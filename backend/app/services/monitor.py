@@ -28,6 +28,8 @@ class MonitorEvent(BaseModel):
     plan_status: str
     plan_budget: float
     source: str
+    spend_delta: float | None = None
+    minutes_since_previous: float | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,7 @@ class _MonitorCore:
         self._profile_provider = profile_provider or (lambda: self._default_profile)
         self.detector = ChangeDetector()
         self._previous_metrics: ComputedMetrics | None = None
+        self._previous_captured_at: datetime | None = None
         self._latest_event: MonitorEvent | None = None
 
     def latest_event(self) -> MonitorEvent | None:
@@ -61,10 +64,18 @@ class _MonitorCore:
         snapshot = reading.snapshot
         metrics = AnalyticsService().compute(snapshot)
         stale = snapshot.freshness != "fresh" or bool(reading.error)
+        spend_delta = None
+        minutes_since_previous = None
+        if self._previous_metrics is not None:
+            spend_delta = metrics.spend - self._previous_metrics.spend
+            if self._previous_captured_at is not None:
+                elapsed = snapshot.captured_at - self._previous_captured_at
+                minutes_since_previous = max(0.0, elapsed.total_seconds() / 60)
         previous = self._previous_metrics or metrics
         signal = self.detector.evaluate(metrics, previous, stale=stale)
         if not stale:
             self._previous_metrics = metrics
+            self._previous_captured_at = snapshot.captured_at
         profile = self._profile_provider()
         reason = signal.reason
         if reading.error:
@@ -83,6 +94,8 @@ class _MonitorCore:
             plan_status=snapshot.plan_status,
             plan_budget=snapshot.plan_budget,
             source=reading.source,
+            spend_delta=spend_delta,
+            minutes_since_previous=minutes_since_previous,
         )
         self._latest_event = event
         return event

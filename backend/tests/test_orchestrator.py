@@ -27,7 +27,7 @@ def test_chat_api_returns_schema_validated_result(client, profile):
     app.dependency_overrides[get_llm_provider] = lambda: FakeLLMProvider(
         content='{"kind":"analysis","message":"API 已读取策略画像。"}'
     )
-    response = client.post("/api/chat", json={"message": "当前策略是什么"})
+    response = client.post("/api/chat", json={"message": "你好"})
     assert response.status_code == 200
     assert response.json() == {"kind": "analysis", "message": "API 已读取策略画像。"}
 
@@ -38,7 +38,7 @@ class FailingLLMProvider:
 
 def test_chat_api_returns_safe_error_when_provider_fails(client, profile):
     app.dependency_overrides[get_llm_provider] = lambda: FailingLLMProvider()
-    response = client.post("/api/chat", json={"message": "看看今天的ROI"})
+    response = client.post("/api/chat", json={"message": "你好"})
     assert response.status_code == 200
     assert response.json() == {"kind": "error", "message": "模型服务不可用，请检查本地配置。"}
 
@@ -64,33 +64,29 @@ async def test_orchestrator_includes_read_only_context(profile):
     assert any("plan-1" in message.content for message in captured)
 
 
-def test_chat_api_includes_cached_read_only_context(client, profile):
-    from app.api.chat import get_llm_provider
+def test_chat_api_returns_deterministic_strategy_card(client, profile):
     from app.main import app
     from app.services.action_planner import PlanSnapshot
-    from app.services.llm.base import LLMMessage, LLMResponse
 
-    captured: list[LLMMessage] = []
-
-    class CapturingProvider:
-        async def complete(self, messages, tools):
-            captured.extend(messages)
-            return LLMResponse(content='{"kind":"analysis","message":"已读取计划。"}')
-
-    app.dependency_overrides[get_llm_provider] = lambda: CapturingProvider()
     app.state.latest_plan_snapshot = PlanSnapshot(
         id="plan-1",
         name="计划 plan-1",
+        account_name="测试账户",
         status="active",
         budget=1000,
         roi_goal=2.6,
     )
 
-    response = client.post("/api/chat", json={"message": "当前计划怎么样"})
+    response = client.post("/api/chat", json={"message": "查看当前投放策略卡"})
 
     assert response.status_code == 200
-    assert any("read_only_context" in message.content for message in captured)
-    assert any("plan-1" in message.content for message in captured)
+    assert response.json()["kind"] == "analysis"
+    message = response.json()["message"]
+    assert "### 全域投放策略卡" in message
+    assert "**计划：计划 plan-1**" in message
+    assert "- 账户：测试账户" in message
+    assert "- 计划预算：¥1,000.00" in message
+    assert "- 目标ROI：2.60" in message
 
 
 def test_chat_api_without_profile_still_answers(client):
@@ -101,7 +97,7 @@ def test_chat_api_without_profile_still_answers(client):
     app.dependency_overrides[get_llm_provider] = lambda: FakeLLMProvider(
         content='{"kind":"analysis","message":"可以先进行只读分析。"}'
     )
-    response = client.post("/api/chat", json={"message": "看看 ROI"})
+    response = client.post("/api/chat", json={"message": "你好"})
 
     assert response.status_code == 200
     assert response.json()["kind"] == "analysis"

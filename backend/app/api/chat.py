@@ -16,6 +16,7 @@ from app.services.llm.base import LLMProvider
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.orchestrator import ChatResult, Orchestrator
 from app.services.profiles import StrategyProfileService
+from app.services.strategy_card import format_strategy_card
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = structlog.get_logger()
@@ -65,7 +66,13 @@ def _read_only_context(request: Request) -> dict:
             if monitor_event is not None
             else None
         ),
+        "strategy_card": format_strategy_card(plan_snapshot, monitor_event),
     }
+
+
+def _wants_strategy_card(message: str) -> bool:
+    keywords = ("策略卡", "策略", "投放", "计划", "ROI", "消耗", "直播", "分析", "怎么样", "情况")
+    return any(keyword in message for keyword in keywords)
 
 
 def _learning_context(db: Session) -> dict:
@@ -121,13 +128,19 @@ async def chat(
             else "操作预览被策略或参数校验阻断。"
         )
         return ChatResult(kind=kind, message=message, preview=preview.model_dump(mode="json"))
+    read_only_context = _read_only_context(request)
+    if _wants_strategy_card(payload.message):
+        return ChatResult(
+            kind="analysis",
+            message=str(read_only_context["strategy_card"]),
+        )
     learning_context = _learning_context(db) if payload.include_learning_context else None
     try:
         return await Orchestrator(llm).handle(
             payload.message,
             profile,
             learning_context,
-            read_only_context=_read_only_context(request),
+            read_only_context=read_only_context,
         )
     except Exception:
         logger.exception("llm_provider_failed")
