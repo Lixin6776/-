@@ -15,11 +15,10 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.execution.api_provider import ApiExecutionProvider
 from app.execution.cdp.factory import create_cdp_execution_provider
-from app.services.action_registry import ActionName
 from app.services.api_client import OceanEngineApiClient
 from app.services.monitor import MonitorProfile, MonitorService
 from app.services.profiles import StrategyProfileService
-from app.services.provider_router import ProviderRouter
+from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
 
 @asynccontextmanager
@@ -48,11 +47,7 @@ async def lifespan(application: FastAPI):
         async def close_noop():
             return None
 
-        api_actions = {
-            ActionName.PAUSE_PLAN,
-            ActionName.ENABLE_PLAN,
-            ActionName.UPDATE_PLAN_BUDGET,
-        }
+        api_actions = API_SUPPORTED_ACTIONS
         if settings.api_configured and settings.api_advertiser_id:
             router = ProviderRouter(
                 api_provider=ApiExecutionProvider(
