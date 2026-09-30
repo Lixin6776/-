@@ -41,3 +41,53 @@ def test_chat_api_returns_safe_error_when_provider_fails(client, profile):
     response = client.post("/api/chat", json={"message": "看看今天的ROI"})
     assert response.status_code == 200
     assert response.json() == {"kind": "error", "message": "模型服务不可用，请检查本地配置。"}
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_includes_read_only_context(profile):
+    from app.services.llm.base import LLMMessage, LLMResponse
+
+    captured: list[LLMMessage] = []
+
+    class CapturingProvider:
+        async def complete(self, messages, tools):
+            captured.extend(messages)
+            return LLMResponse(content='{"kind":"analysis","message":"已读取计划快照。"}')
+
+    await Orchestrator(CapturingProvider()).handle(
+        "当前计划怎么样",
+        profile,
+        read_only_context={"plan": {"id": "plan-1", "roi": 1.87}},
+    )
+
+    assert any("read_only_context" in message.content for message in captured)
+    assert any("plan-1" in message.content for message in captured)
+
+
+def test_chat_api_includes_cached_read_only_context(client, profile):
+    from app.api.chat import get_llm_provider
+    from app.main import app
+    from app.services.action_planner import PlanSnapshot
+    from app.services.llm.base import LLMMessage, LLMResponse
+
+    captured: list[LLMMessage] = []
+
+    class CapturingProvider:
+        async def complete(self, messages, tools):
+            captured.extend(messages)
+            return LLMResponse(content='{"kind":"analysis","message":"已读取计划。"}')
+
+    app.dependency_overrides[get_llm_provider] = lambda: CapturingProvider()
+    app.state.latest_plan_snapshot = PlanSnapshot(
+        id="plan-1",
+        name="计划 plan-1",
+        status="active",
+        budget=1000,
+        roi_goal=2.6,
+    )
+
+    response = client.post("/api/chat", json={"message": "当前计划怎么样"})
+
+    assert response.status_code == 200
+    assert any("read_only_context" in message.content for message in captured)
+    assert any("plan-1" in message.content for message in captured)

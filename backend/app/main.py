@@ -104,6 +104,7 @@ async def lifespan(application: FastAPI):
         )
     application.state.execution_provider_factory = execution_provider_factory
     application.state.plan_snapshot_provider = CdpPlanReader(settings.cdp_endpoint).read
+    application.state.latest_plan_snapshot = None
     yield
 
 

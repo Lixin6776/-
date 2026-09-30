@@ -52,6 +52,10 @@ class _MonitorCore:
         self._profile_provider = profile_provider or (lambda: self._default_profile)
         self.detector = ChangeDetector()
         self._previous_metrics: ComputedMetrics | None = None
+        self._latest_event: MonitorEvent | None = None
+
+    def latest_event(self) -> MonitorEvent | None:
+        return self._latest_event
 
     def build_event(self, reading: SnapshotReading) -> MonitorEvent:
         snapshot = reading.snapshot
@@ -65,7 +69,7 @@ class _MonitorCore:
         reason = signal.reason
         if reading.error:
             reason = f"CDP 读取失败，已暂停判断：{reading.error}"
-        return MonitorEvent(
+        event = MonitorEvent(
             captured_at=snapshot.captured_at,
             freshness=snapshot.freshness,
             banner=(
@@ -80,6 +84,8 @@ class _MonitorCore:
             plan_budget=snapshot.plan_budget,
             source=reading.source,
         )
+        self._latest_event = event
+        return event
 
 
 class MonitorService(_MonitorCore):

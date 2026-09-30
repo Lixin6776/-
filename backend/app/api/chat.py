@@ -46,6 +46,28 @@ def _plan_snapshot(request: Request, action: ActionEnvelope) -> PlanSnapshot:
     return get_plan_snapshot(request, action.target_id)
 
 
+def _read_only_context(request: Request) -> dict:
+    monitor_service = getattr(request.app.state, "monitor_service", None)
+    monitor_event = (
+        monitor_service.latest_event()
+        if monitor_service is not None and hasattr(monitor_service, "latest_event")
+        else None
+    )
+    plan_snapshot = getattr(request.app.state, "latest_plan_snapshot", None)
+    return {
+        "plan": (
+            plan_snapshot.model_dump(mode="json")
+            if plan_snapshot is not None
+            else None
+        ),
+        "monitor": (
+            monitor_event.model_dump(mode="json")
+            if monitor_event is not None
+            else None
+        ),
+    }
+
+
 def _learning_context(db: Session) -> dict:
     cases = list(db.scalars(select(LearningCase).limit(5)))
     evaluations = list(db.scalars(select(StrategyEvaluation).limit(5)))
@@ -93,7 +115,12 @@ async def chat(
         return ChatResult(kind=kind, message=message, preview=preview.model_dump(mode="json"))
     learning_context = _learning_context(db) if payload.include_learning_context else None
     try:
-        return await Orchestrator(llm).handle(payload.message, profile, learning_context)
+        return await Orchestrator(llm).handle(
+            payload.message,
+            profile,
+            learning_context,
+            read_only_context=_read_only_context(request),
+        )
     except Exception:
         logger.exception("llm_provider_failed")
         return ChatResult(kind="error", message="模型服务不可用，请检查本地配置。")

@@ -24,11 +24,13 @@ class Orchestrator:
         message: str,
         profile: StrategyProfile,
         learning_context: dict | None = None,
+        read_only_context: dict | None = None,
     ) -> ChatResult:
         context = (
             f"当前策略画像 v{profile.version}: {profile.business_direction}; "
             f"{profile.primary_objective}; 约束={profile.hard_constraints}; "
-            f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}"
+            f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}; "
+            f"read_only_context={json.dumps(read_only_context, ensure_ascii=False, default=str)}"
         )
         response = await self.llm.complete(
             [
