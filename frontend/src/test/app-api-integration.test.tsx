@@ -15,6 +15,7 @@ vi.mock("../lib/api", () => ({
   }),
   sendChat: vi.fn().mockResolvedValue({ kind: "analysis", message: "当前 ROI 为 2.5。" }),
   getExecutionJobs: vi.fn().mockResolvedValue([]),
+  getApiConnectionStatus: vi.fn().mockResolvedValue({ configured: false, provider_preference: "cdp" }),
   getLearningCases: vi.fn().mockResolvedValue([]),
   getLearningEvaluations: vi.fn().mockResolvedValue([]),
   getLearningSuggestions: vi.fn().mockResolvedValue([]),

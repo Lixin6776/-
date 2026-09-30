@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { ActionParameterForm } from "./components/ActionParameterForm";
+import { ApiConnectionPanel } from "./components/ApiConnectionPanel";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { LearningCaseList } from "./components/LearningCaseList";
 import { StrategyEvaluationPanel } from "./components/StrategyEvaluationPanel";
@@ -16,6 +17,7 @@ import {
   executeActionConfirmation,
   getActiveProfile,
   getExecutionJobs,
+  getApiConnectionStatus,
   getLearningCases,
   getLearningEvaluations,
   getLearningSuggestions,
@@ -47,6 +49,7 @@ export default function App() {
   const [learningCases, setLearningCases] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
 
   useEffect(() => {
     getActiveProfile()
@@ -56,6 +59,7 @@ export default function App() {
     getLearningCases().then(setLearningCases).catch(() => undefined);
     getLearningEvaluations().then(setEvaluations).catch(() => undefined);
     getLearningSuggestions().then(setSuggestions).catch(() => undefined);
+    getApiConnectionStatus().then(setApiStatus).catch(() => undefined);
     return connectMonitor(() => undefined);
   }, []);
 
@@ -106,6 +110,10 @@ export default function App() {
           <LiveMonitorPanel />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
+          <ApiConnectionPanel
+            configured={apiStatus.configured}
+            providerPreference={apiStatus.provider_preference}
+          />
           <LearningCaseList cases={learningCases} />
           {evaluations[0] ? <StrategyEvaluationPanel evaluation={evaluations[0]} /> : null}
           {suggestions.map((item) => (

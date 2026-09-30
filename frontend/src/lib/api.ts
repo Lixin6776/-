@@ -89,3 +89,8 @@ export async function decideLearningSuggestion(id: string, decision: "accept" | 
   if (!response.ok) throw new Error("Suggestion decision failed");
   return response.json();
 }
+export async function getApiConnectionStatus() {
+  const response = await fetch(`${API_BASE}/api/api-connection/status`);
+  if (!response.ok) throw new Error("Failed to load API connection status");
+  return response.json();
+}
