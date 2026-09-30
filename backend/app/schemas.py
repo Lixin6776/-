@@ -52,3 +52,52 @@ class ExecutionJobRead(BaseModel):
     finished_at: datetime | None
     error: str | None
     result: dict
+
+class LearningCaseRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    strategy_profile_version: int
+    recommendation_id: str | None
+    confirmation_id: str | None
+    execution_job_id: str | None
+    action_name: str
+    context: dict
+    status: str
+    created_at: datetime
+
+
+class DecisionOutcomeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    case_id: str
+    metric_window: str
+    metrics: dict
+    observed_at: datetime
+
+
+class StrategyEvaluationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    case_id: str | None
+    sample_size: int
+    effect_size: float | None
+    confidence: str
+    verdict: str
+    evidence: dict
+    created_at: datetime
+
+
+class StrategySuggestionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    strategy_profile_version: int
+    suggestion_type: str
+    proposed_change: dict
+    evidence: dict
+    confidence: str
+    status: str
+    created_at: datetime

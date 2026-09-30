@@ -19,10 +19,16 @@ class Orchestrator:
     def __init__(self, llm: LLMProvider) -> None:
         self.llm = llm
 
-    async def handle(self, message: str, profile: StrategyProfile) -> ChatResult:
+    async def handle(
+        self,
+        message: str,
+        profile: StrategyProfile,
+        learning_context: dict | None = None,
+    ) -> ChatResult:
         context = (
             f"当前策略画像 v{profile.version}: {profile.business_direction}; "
-            f"{profile.primary_objective}; 约束={profile.hard_constraints}"
+            f"{profile.primary_objective}; 约束={profile.hard_constraints}; "
+            f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}"
         )
         response = await self.llm.complete(
             [
