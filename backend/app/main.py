@@ -9,15 +9,37 @@ from app.api.monitor import router as monitor_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
 from app.config import settings
-from app.db import Base, engine
+from app.db import Base, SessionLocal, engine
 from app.services.confirmations import ConfirmationService
-from app.services.monitor import MonitorService
+from app.services.monitor import MonitorProfile, MonitorService
+from app.services.profiles import StrategyProfileService
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     Base.metadata.create_all(bind=engine)
-    application.state.monitor_service = MonitorService(Path(settings.monitor_fixture_path))
+    def current_profile() -> MonitorProfile:
+        with SessionLocal() as session:
+            try:
+                profile = StrategyProfileService(session).get_active()
+            except LookupError:
+                return MonitorProfile(
+                    version=0,
+                    business_direction="未配置",
+                    primary_objective="请先创建策略画像",
+                    hard_constraints={},
+                )
+            return MonitorProfile(
+                version=profile.version,
+                business_direction=profile.business_direction,
+                primary_objective=profile.primary_objective,
+                hard_constraints=profile.hard_constraints,
+            )
+
+    application.state.monitor_service = MonitorService(
+        Path(settings.monitor_fixture_path),
+        profile_provider=current_profile,
+    )
     application.state.confirmation_service = ConfirmationService()
     yield
 
