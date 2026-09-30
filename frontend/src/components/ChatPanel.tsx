@@ -19,6 +19,44 @@ export type ChatReply = {
   preview?: ActionPreview;
 };
 
+type StrategyCard = {
+  title: string;
+  plan: string;
+  items: string[];
+};
+
+function parseStrategyCard(content: string): StrategyCard | null {
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const title = lines.find((line) => line.startsWith("### 全域投放策略卡"));
+  const plan = lines.find((line) => line.startsWith("**计划："));
+  const items = lines.filter((line) => line.startsWith("- "));
+  if (!title || !plan || items.length === 0) return null;
+  return {
+    title: title.slice(4),
+    plan: plan.replaceAll("**", ""),
+    items: items.map((item) => item.slice(2))
+  };
+}
+
+function MessageContent({ content }: { content: string }) {
+  const card = parseStrategyCard(content);
+  if (!card) return <p className="message-text">{content}</p>;
+  return (
+    <div className="strategy-card-message">
+      <h3>{card.title}</h3>
+      <strong>{card.plan}</strong>
+      <ul>
+        {card.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 type Message = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -74,7 +112,7 @@ export function ChatPanel({
         {messages.map((message, index) => (
           <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
             <span>{message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}</span>
-            <p>{message.content}</p>
+            <MessageContent content={message.content} />
             {message.preview ? (
               <div className="action-preview-card">
                 <strong>{message.preview.target_name}</strong>

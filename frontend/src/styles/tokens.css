@@ -233,3 +233,10 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
 
 .llm-connection-status { color: var(--color-text-secondary); }
 .llm-actions { display: flex; gap: var(--space-2); }
+
+.message-text { margin-bottom: 0; white-space: pre-wrap; }
+.strategy-card-message { display: grid; gap: var(--space-3); }
+.strategy-card-message h3 { margin: 0; font-size: 17px; }
+.strategy-card-message > strong { font-size: 16px; }
+.strategy-card-message ul { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-4); }
+.strategy-card-message li { color: var(--color-text-secondary); }
