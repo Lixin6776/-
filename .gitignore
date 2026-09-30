@@ -1,0 +1,13 @@
+.worktrees/
+.superpowers/
+.local/
+backend/.venv/
+backend/qianchuan.db
+frontend/node_modules/
+frontend/dist/
+coverage/
+*.log
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
