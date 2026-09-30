@@ -53,8 +53,9 @@ class ActionPreview(BaseModel):
 
 
 class ActionPlanner:
-    def __init__(self, ttl_minutes: int = 10) -> None:
+    def __init__(self, ttl_minutes: int = 10, max_batch_size: int = 20) -> None:
         self.ttl_minutes = ttl_minutes
+        self.max_batch_size = max_batch_size
         self.registry = ActionRegistry.default()
 
     def preflight(
@@ -177,3 +178,45 @@ class ActionPlanner:
         if target_budget == plan.budget:
             blockers.append("目标预算与当前预算相同")
         return {"budget": {"before": plan.budget, "after": target_budget}}
+    def preflight_batch(
+        self,
+        actions: list[ActionEnvelope],
+        profile: StrategyProfile,
+        plans: dict[str, PlanSnapshot],
+    ) -> list[ActionPreview]:
+        if len(actions) > self.max_batch_size:
+            raise ValueError(f"batch size exceeds limit {self.max_batch_size}")
+        previews: list[ActionPreview] = []
+        for action in actions:
+            plan = plans.get(action.target_id)
+            if plan is None:
+                plan = PlanSnapshot(
+                    id=action.target_id,
+                    name="未知计划",
+                    status="missing",
+                    budget=0,
+                )
+                preview = self.preflight(action, profile, plan)
+                preview = preview.model_copy(
+                    update={
+                        "blockers": [*preview.blockers, "批量预检目标不存在"],
+                        "allowed": False,
+                    }
+                )
+            else:
+                preview = self.preflight(action, profile, plan)
+            previews.append(preview)
+        if any(not preview.allowed for preview in previews):
+            previews = [
+                preview.model_copy(
+                    update={
+                        "blockers": [
+                            *preview.blockers,
+                            "批量操作已全部中止：存在无效目标",
+                        ],
+                        "allowed": False,
+                    }
+                )
+                for preview in previews
+            ]
+        return previews

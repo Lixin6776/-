@@ -27,6 +27,10 @@ class ActionConfirmationRequest(BaseModel):
     action: ActionEnvelope
 
 
+class BatchActionRequest(BaseModel):
+    actions: list[ActionEnvelope]
+
+
 @router.post("/preview", response_model=ActionPreview)
 def preview_action(
     payload: ActionPreviewRequest,
@@ -54,6 +58,42 @@ def create_action_confirmation(
     if not preview.allowed:
         raise HTTPException(status_code=409, detail=preview.blockers)
     return ConfirmationService(db).create_from_preview(preview)
+
+
+@router.post("/batch-preview", response_model=list[ActionPreview])
+def batch_preview(
+    payload: BatchActionRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    profile = StrategyProfileService(db).get_active()
+    plans = {
+        action.target_id: get_plan_snapshot(request, action.target_id)
+        for action in payload.actions
+    }
+    return ActionPlanner().preflight_batch(payload.actions, profile, plans)
+
+
+@router.post(
+    "/batch-confirmations",
+    response_model=list[PendingConfirmationRead],
+    status_code=201,
+)
+def batch_confirmations(
+    payload: BatchActionRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    profile = StrategyProfileService(db).get_active()
+    plans = {
+        action.target_id: get_plan_snapshot(request, action.target_id)
+        for action in payload.actions
+    }
+    previews = ActionPlanner().preflight_batch(payload.actions, profile, plans)
+    if any(not preview.allowed for preview in previews):
+        raise HTTPException(status_code=409, detail="Batch preflight failed")
+    service = ConfirmationService(db)
+    return [service.create_from_preview(preview) for preview in previews]
 
 
 @router.post(
