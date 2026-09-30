@@ -128,3 +128,22 @@ export async function testLlmConnection() {
   if (!response.ok) throw new Error("LLM connection test failed");
   return response.json();
 }
+
+export async function createStrategyProfile(profile: {
+  name: string;
+  business_direction: string;
+  primary_objective: string;
+  secondary_objectives?: string[];
+  hard_constraints?: Record<string, unknown>;
+  monitoring_config?: Record<string, unknown>;
+  allowed_actions?: string[];
+  notification_policy?: Record<string, unknown>;
+}) {
+  const response = await fetch(`${API_BASE}/api/profiles/versions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile)
+  });
+  if (!response.ok) throw new Error("Failed to create strategy profile");
+  return response.json();
+}

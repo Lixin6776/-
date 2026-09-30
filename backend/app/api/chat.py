@@ -102,7 +102,13 @@ async def chat(
     db: Annotated[Session, Depends(get_db)],
     llm: Annotated[LLMProvider, Depends(get_llm_provider)],
 ) -> ChatResult:
-    profile = StrategyProfileService(db).get_active()
+    try:
+        profile = StrategyProfileService(db).get_active()
+    except LookupError:
+        return ChatResult(
+            kind="error",
+            message="请先创建并激活策略画像，再使用 Chatbot 分析。",
+        )
     if payload.proposed_action is not None:
         snapshot = _plan_snapshot(request, payload.proposed_action)
         preview = ActionPlanner().preflight(payload.proposed_action, profile, snapshot)

@@ -13,6 +13,7 @@ import { LiveMonitorPanel, type LiveMonitorEvent } from "./components/LiveMonito
 import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
 import { PlanSnapshotPanel } from "./components/PlanSnapshotPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
+import { StrategyProfilePanel } from "./components/StrategyProfilePanel";
 import {
   connectMonitor,
   createActionConfirmation,
@@ -110,6 +111,15 @@ export default function App() {
       <main className="workspace">
         <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
+          <StrategyProfilePanel
+            onCreated={(value) =>
+              setProfile({
+                ...(value as StrategyBannerProfile),
+                data_time: new Date().toISOString(),
+                freshness: "fresh"
+              })
+            }
+          />
           <PlanSnapshotPanel />
           <LiveMonitorPanel event={monitorEvent} />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />

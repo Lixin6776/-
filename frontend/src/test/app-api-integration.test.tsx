@@ -5,6 +5,15 @@ import App from "../App";
 import { ChatPanel } from "../components/ChatPanel";
 
 vi.mock("../lib/api", () => ({
+  createStrategyProfile: vi.fn().mockResolvedValue({
+    id: "p1",
+    version: 10,
+    active: true,
+    name: "默认策略",
+    business_direction: "稳定放量",
+    primary_objective: "ROI >= 2.5",
+    hard_constraints: {}
+  }),
   getActiveProfile: vi.fn().mockResolvedValue({
     version: 9,
     business_direction: "稳定放量",

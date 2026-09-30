@@ -187,7 +187,7 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
 .execution-timeline time { color: var(--color-text-secondary); font-size: 12px; }
 .action-form { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
 .action-form label { display: grid; gap: var(--space-1); color: var(--color-text-secondary); }
-.action-form input, .action-form select {
+.action-form input, .action-form select, .action-form textarea {
   padding: 9px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-button);
