@@ -92,3 +92,11 @@ test("chat panel exposes a structured action preview for confirmation", async ()
   fireEvent.click(screen.getByRole("button", { name: "查看并确认" }));
   expect(onOpenConfirmation).toHaveBeenCalledTimes(1);
 });
+
+
+test("left navigation opens a floating tool window", async () => {
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "大模型" }));
+  expect(await screen.findByRole("dialog", { name: "大模型" })).toBeInTheDocument();
+  expect(await screen.findByText("DeepSeek 大模型")).toBeInTheDocument();
+});

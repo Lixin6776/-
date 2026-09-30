@@ -45,6 +45,20 @@ type ExecutionJob = {
   created_at: string;
 };
 
+type ToolWindow = "strategy" | "decisions" | "jobs" | "llm" | "api" | "learning" | "evaluation" | "suggestions" | "advanced";
+
+const tools: Array<{ id: ToolWindow; label: string }> = [
+  { id: "strategy", label: "投放策略" },
+  { id: "decisions", label: "决策" },
+  { id: "jobs", label: "执行记录" },
+  { id: "llm", label: "大模型" },
+  { id: "api", label: "API 连接" },
+  { id: "learning", label: "学习记录" },
+  { id: "evaluation", label: "策略评估" },
+  { id: "suggestions", label: "策略建议" },
+  { id: "advanced", label: "高级操作" }
+];
+
 export default function App() {
   const [profile, setProfile] = useState<StrategyBannerProfile>(fallbackProfile);
   const [selectedPreview, setSelectedPreview] = useState<ActionPreview | null>(null);
@@ -54,6 +68,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
   const [monitorEvent, setMonitorEvent] = useState<LiveMonitorEvent | null>(null);
+  const [activeWindow, setActiveWindow] = useState<ToolWindow | null>(null);
 
   useEffect(() => {
     getActiveProfile()
@@ -86,6 +101,7 @@ export default function App() {
       params: actionParams
     });
     setSelectedPreview(preview as ActionPreview);
+    setActiveWindow(null);
   }
 
   async function decideSuggestion(id: string, decision: "accept" | "reject") {
@@ -94,6 +110,7 @@ export default function App() {
       current.map((item) => (item.id === id ? updated : item))
     );
   }
+
   async function confirmAction(preview: ActionPreview) {
     const confirmation = await createActionConfirmation({
       action_name: preview.action_name,
@@ -105,31 +122,45 @@ export default function App() {
     setSelectedPreview(null);
   }
 
-  return (
-    <div className="app-shell">
-      <StrategyBanner profile={profile} />
-      <PlanSnapshotPanel event={monitorEvent} />
-      <main className="workspace">
-        <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
-        <aside className="context-column">
-          <InvestmentStrategyPanel
-            onCreated={(value) =>
-              setProfile({
-                ...(value as StrategyBannerProfile),
-                data_time: new Date().toISOString(),
-                freshness: "fresh"
-              })
-            }
-          />
-          <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
-          <ExecutionTimeline jobs={jobs} />
-          <LlmConnectionPanel />
-          <ApiConnectionPanel
-            configured={apiStatus.configured}
-            providerPreference={apiStatus.provider_preference}
-          />
-          <LearningCaseList cases={learningCases} />
-          {evaluations[0] ? <StrategyEvaluationPanel evaluation={evaluations[0]} /> : null}
+  function renderWindow() {
+    if (activeWindow === "strategy") {
+      return (
+        <InvestmentStrategyPanel
+          onCreated={(value) => {
+            setProfile({
+              ...(value as StrategyBannerProfile),
+              data_time: new Date().toISOString(),
+              freshness: "fresh"
+            });
+            setActiveWindow(null);
+          }}
+        />
+      );
+    }
+    if (activeWindow === "decisions") {
+      return <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />;
+    }
+    if (activeWindow === "jobs") return <ExecutionTimeline jobs={jobs} />;
+    if (activeWindow === "llm") return <LlmConnectionPanel />;
+    if (activeWindow === "api") {
+      return (
+        <ApiConnectionPanel
+          configured={apiStatus.configured}
+          providerPreference={apiStatus.provider_preference}
+        />
+      );
+    }
+    if (activeWindow === "learning") return <LearningCaseList cases={learningCases} />;
+    if (activeWindow === "evaluation") {
+      return evaluations[0] ? (
+        <StrategyEvaluationPanel evaluation={evaluations[0]} />
+      ) : (
+        <p className="empty-state">暂无策略评估。</p>
+      );
+    }
+    if (activeWindow === "suggestions") {
+      return suggestions.length ? (
+        <div className="window-stack">
           {suggestions.map((item) => (
             <StrategySuggestionCard
               key={item.id}
@@ -138,12 +169,67 @@ export default function App() {
               onReject={(id) => decideSuggestion(id, "reject")}
             />
           ))}
-          <details className="panel advanced-actions">
-            <summary>高级投放操作</summary>
-            <ActionParameterForm actionName="copy_plan" onSubmit={(params) => handleAdvancedAction("copy_plan", params)} />
-          </details>
-        </aside>
-      </main>
+        </div>
+      ) : (
+        <p className="empty-state">暂无策略建议。</p>
+      );
+    }
+    if (activeWindow === "advanced") {
+      return (
+        <ActionParameterForm
+          actionName="copy_plan"
+          onSubmit={(params) => handleAdvancedAction("copy_plan", params)}
+        />
+      );
+    }
+    return null;
+  }
+
+  const activeLabel = tools.find((item) => item.id === activeWindow)?.label;
+
+  return (
+    <div className="app-shell">
+      <StrategyBanner profile={profile} />
+      <PlanSnapshotPanel event={monitorEvent} />
+      <div className="workspace byte-workspace">
+        <nav className="tool-nav panel" aria-label="功能导航">
+          {tools.map((item) => (
+            <button
+              className={activeWindow === item.id ? "tool-nav-item active" : "tool-nav-item"}
+              key={item.id}
+              type="button"
+              onClick={() => setActiveWindow(item.id)}
+            >
+              <span>{item.label}</span>
+              {item.id === "suggestions" && suggestions.length ? (
+                <em>{suggestions.length}</em>
+              ) : null}
+            </button>
+          ))}
+        </nav>
+        <main className="chat-main">
+          <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
+        </main>
+      </div>
+      {activeWindow ? (
+        <div className="tool-window-backdrop" role="presentation" onClick={() => setActiveWindow(null)}>
+          <section
+            className="tool-window"
+            role="dialog"
+            aria-modal="true"
+            aria-label={activeLabel}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="tool-window-header">
+              <h2>{activeLabel}</h2>
+              <button className="button-outline" type="button" onClick={() => setActiveWindow(null)}>
+                关闭
+              </button>
+            </header>
+            <div className="tool-window-body">{renderWindow()}</div>
+          </section>
+        </div>
+      ) : null}
       {selectedPreview ? (
         <ConfirmationDialog
           preview={{ ...selectedPreview, constraints: profile.hard_constraints }}
