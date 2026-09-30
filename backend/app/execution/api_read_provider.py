@@ -23,6 +23,11 @@ class ApiReadProvider:
                     name=str(item["ad_name"]),
                     status=str(item["status"]),
                     budget=float(item["budget"]),
+                    bid=float(item["bid"]) if item.get("bid") is not None else None,
+                    targeting=dict(item.get("targeting", {})),
+                    schedule=dict(item.get("schedule", {})),
+                    materials=list(item.get("materials", [])),
+                    available_materials=list(item.get("available_materials", [])),
                 )
         raise KeyError(f"Plan not found in API response: {plan_id}")
 

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from app.services.action_registry import ActionName
 
+API_SUPPORTED_ACTIONS: set[ActionName] = set(ActionName)
+
 
 @dataclass(frozen=True)
 class ProviderSelection:

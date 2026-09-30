@@ -54,7 +54,15 @@ class EndpointMap:
             )
         elif action.action_name == ActionName.UPDATE_PLAN_BUDGET:
             payload.update({"ad_id": action.target_id, "budget": action.params["budget"]})
-        elif action.action_name in {ActionName.DELETE_PLAN, ActionName.EDIT_PLAN}:
+        elif action.action_name in {
+            ActionName.DELETE_PLAN,
+            ActionName.EDIT_PLAN,
+            ActionName.UPDATE_PLAN_BID,
+            ActionName.UPDATE_TARGETING,
+            ActionName.UPDATE_SCHEDULE,
+            ActionName.BIND_EXISTING_MATERIAL,
+            ActionName.UNBIND_EXISTING_MATERIAL,
+        }:
             payload["ad_id"] = action.target_id
         elif action.action_name == ActionName.COPY_PLAN:
             payload.update({"source_ad_id": action.target_id, "name": action.params["name"]})
