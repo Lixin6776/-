@@ -110,25 +110,34 @@ export function ChatPanel({
       </div>
       <div className="chat-stream" aria-live="polite">
         {messages.map((message, index) => (
-          <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
-            <span>{message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}</span>
-            <MessageContent content={message.content} />
-            {message.preview ? (
-              <div className="action-preview-card">
-                <strong>{message.preview.target_name}</strong>
-                <span>{message.preview.action_name}</span>
-                <pre>{JSON.stringify(message.preview.diff, null, 2)}</pre>
-                <button
-                  className="button-outline"
-                  type="button"
-                  onClick={() => onOpenConfirmation?.(message.preview!)}
-                >
-                  查看并确认
-                </button>
-              </div>
-            ) : null}
-          </article>
-        ))}
+  <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
+    {message.role !== "system" ? (
+      <div className="chat-avatar" aria-hidden="true">
+        {message.role === "user" ? "我" : "助"}
+      </div>
+    ) : null}
+    <div className="message-body">
+      <span className={message.role === "system" ? "message-role-system" : "message-role"}>
+        {message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}
+      </span>
+      <MessageContent content={message.content} />
+      {message.preview ? (
+        <div className="action-preview-card">
+          <strong>{message.preview.target_name}</strong>
+          <span>{message.preview.action_name}</span>
+          <pre>{JSON.stringify(message.preview.diff, null, 2)}</pre>
+          <button
+            className="button-outline"
+            type="button"
+            onClick={() => onOpenConfirmation?.(message.preview!)}
+          >
+            查看并确认
+          </button>
+        </div>
+      ) : null}
+    </div>
+  </article>
+))}
       </div>
       <form className="composer" onSubmit={submit}>
         <input

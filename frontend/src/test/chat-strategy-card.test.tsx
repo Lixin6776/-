@@ -16,7 +16,7 @@ test("chat panel renders strategy card as structured content", async () => {
     ].join("\n")
   });
 
-  render(<ChatPanel onSend={onSend} />);
+  const { container } = render(<ChatPanel onSend={onSend} />);
   fireEvent.change(screen.getByLabelText("输入投放问题"), { target: { value: "查看策略卡" } });
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
@@ -24,4 +24,6 @@ test("chat panel renders strategy card as structured content", async () => {
   expect(screen.getByText("计划：计划 1876023119718580")).toBeInTheDocument();
   expect(screen.getByText("计划预算：¥9,999,999.00")).toBeInTheDocument();
   expect(screen.queryByText(/###/)).not.toBeInTheDocument();
+  expect(container.querySelector(".message-user")).not.toBeNull();
+  expect(container.querySelector(".message-assistant")).not.toBeNull();
 });

@@ -240,3 +240,79 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
 .strategy-card-message > strong { font-size: 16px; }
 .strategy-card-message ul { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-4); }
 .strategy-card-message li { color: var(--color-text-secondary); }
+
+/* WeChat-like chat layout */
+.chat-panel {
+  height: min(720px, calc(100vh - 150px));
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 6px 16px 2px;
+  align-content: initial;
+}
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 80%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+.message-user { align-self: flex-end; flex-direction: row-reverse; }
+.message-assistant { align-self: flex-start; }
+.message-system { align-self: center; max-width: 92%; }
+.message-body { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.message-user .message-body { align-items: flex-end; }
+.message-role { display: none; }
+.message-role-system { color: var(--color-text-secondary); font-size: 12px; text-align: center; }
+.chat-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #d9e7dc;
+  color: #315447;
+  font-size: 13px;
+}
+.message-user .chat-avatar { background: #95ec69; color: #162315; }
+.message-text,
+.strategy-card-message {
+  max-width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.message-user .message-text,
+.message-user .strategy-card-message {
+  background: #95ec69;
+  border-color: #85dc5b;
+}
+.message-system .message-body { align-items: center; }
+.message-system .message-text,
+.message-system .strategy-card-message {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.message p { margin: 0; }
+.composer { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
