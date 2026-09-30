@@ -62,3 +62,30 @@ export async function previewAction(action: {
   if (!response.ok) throw new Error("Action preview failed");
   return response.json();
 }
+export async function getLearningCases() {
+  const response = await fetch(`${API_BASE}/api/learning/cases`);
+  if (!response.ok) throw new Error("Failed to load learning cases");
+  return response.json();
+}
+
+export async function getLearningEvaluations() {
+  const response = await fetch(`${API_BASE}/api/learning/evaluations`);
+  if (!response.ok) throw new Error("Failed to load evaluations");
+  return response.json();
+}
+
+export async function getLearningSuggestions() {
+  const response = await fetch(`${API_BASE}/api/learning/suggestions`);
+  if (!response.ok) throw new Error("Failed to load suggestions");
+  return response.json();
+}
+
+export async function decideLearningSuggestion(id: string, decision: "accept" | "reject", reason = "") {
+  const response = await fetch(`${API_BASE}/api/learning/suggestions/${id}/${decision}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason })
+  });
+  if (!response.ok) throw new Error("Suggestion decision failed");
+  return response.json();
+}

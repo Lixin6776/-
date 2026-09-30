@@ -193,3 +193,14 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
   border-radius: var(--radius-button);
 }
 .acknowledgement { display: flex; gap: var(--space-2); align-items: center; margin: var(--space-4) 0; }
+.learning-case-list ul { display: grid; gap: var(--space-3); padding-left: var(--space-6); }
+.learning-case-list li { display: grid; gap: 2px; }
+.learning-case-list span { color: var(--color-text-secondary); }
+.strategy-evaluation-panel pre, .strategy-suggestion-card pre {
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-button);
+  font-size: 13px;
+}

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 
 import { ActionParameterForm } from "./components/ActionParameterForm";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
+import { LearningCaseList } from "./components/LearningCaseList";
+import { StrategyEvaluationPanel } from "./components/StrategyEvaluationPanel";
+import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { ExecutionTimeline } from "./components/ExecutionTimeline";
@@ -13,6 +16,9 @@ import {
   executeActionConfirmation,
   getActiveProfile,
   getExecutionJobs,
+  getLearningCases,
+  getLearningEvaluations,
+  getLearningSuggestions,
   previewAction,
   sendChat
 } from "./lib/api";
@@ -37,12 +43,18 @@ export default function App() {
   const [profile, setProfile] = useState<StrategyBannerProfile>(fallbackProfile);
   const [selectedPreview, setSelectedPreview] = useState<ActionPreview | null>(null);
   const [jobs, setJobs] = useState<ExecutionJob[]>([]);
+  const [learningCases, setLearningCases] = useState<any[]>([]);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
 
   useEffect(() => {
     getActiveProfile()
       .then((value) => setProfile(value as StrategyBannerProfile))
       .catch(() => setProfile(fallbackProfile));
     getExecutionJobs().then((value) => setJobs(value as ExecutionJob[])).catch(() => undefined);
+    getLearningCases().then(setLearningCases).catch(() => undefined);
+    getLearningEvaluations().then(setEvaluations).catch(() => undefined);
+    getLearningSuggestions().then(setSuggestions).catch(() => undefined);
     return connectMonitor(() => undefined);
   }, []);
 
@@ -87,6 +99,11 @@ export default function App() {
           <LiveMonitorPanel />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
+          <LearningCaseList cases={learningCases} />
+          {evaluations[0] ? <StrategyEvaluationPanel evaluation={evaluations[0]} /> : null}
+          {suggestions.map((item) => (
+            <StrategySuggestionCard key={item.id} suggestion={item} onAccept={() => undefined} onReject={() => undefined} />
+          ))}
           <details className="panel advanced-actions">
             <summary>高级投放操作</summary>
             <ActionParameterForm actionName="copy_plan" onSubmit={(params) => handleAdvancedAction("copy_plan", params)} />
