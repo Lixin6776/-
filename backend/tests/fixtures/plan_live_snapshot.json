@@ -1,0 +1,14 @@
+{
+  "captured_at": "2026-09-30T20:15:00+08:00",
+  "freshness": "fresh",
+  "plan": {"status": "active", "budget": 1200},
+  "metrics": {
+    "spend": 400,
+    "gmv": 1000,
+    "orders": 20,
+    "views": 1000,
+    "online_viewers": 120,
+    "roi": null,
+    "gpm": null
+  }
+}
