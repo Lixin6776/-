@@ -3,7 +3,8 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ExecutionJob, StrategySuggestion
+from app.models import ExecutionJob, LearningCase, StrategySuggestion
+from app.services.outcomes import OutcomeAttributionService
 
 
 class LearningService:
@@ -35,3 +36,26 @@ class LearningService:
         if job is None:
             raise LookupError("Execution job not found")
         return json.loads(json.dumps(job.result, ensure_ascii=False, default=str))
+    def record_execution_case(self, job: ExecutionJob, profile_version: int) -> LearningCase:
+        case = LearningCase(
+            strategy_profile_version=profile_version,
+            confirmation_id=job.confirmation_id,
+            execution_job_id=job.id,
+            action_name=job.action_name,
+            context={
+                "status": job.status,
+                "before": job.result.get("before", {}),
+                "after": job.result.get("after", {}),
+            },
+            status="observed",
+        )
+        self.session.add(case)
+        self.session.commit()
+        self.session.refresh(case)
+        OutcomeAttributionService(self.session).record(
+            case_id=case.id,
+            before=job.result.get("before", {}),
+            after=job.result.get("after", {}),
+            windows=["5m", "30m"],
+        )
+        return case

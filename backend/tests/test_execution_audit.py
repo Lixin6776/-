@@ -41,3 +41,16 @@ async def test_successful_job_writes_before_after_and_screenshot(
     assert logs[-1].payload["before"]["status"] == "active"
     assert logs[-1].payload["after"]["status"] == "paused"
     assert logs[-1].artifact_dir
+
+@pytest.mark.asyncio
+async def test_successful_execution_creates_learning_case(
+    execution_service,
+    confirmation,
+    db_session,
+):
+    from app.models import LearningCase
+
+    result = await execution_service.run_confirmation(confirmation.id)
+    case = db_session.query(LearningCase).filter_by(execution_job_id=result.job_id).one()
+    assert case.action_name == "pause_plan"
+    assert case.strategy_profile_version == confirmation.strategy_profile_version

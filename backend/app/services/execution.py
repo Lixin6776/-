@@ -14,6 +14,7 @@ from app.models import ExecutionJob, ExecutionLog
 from app.services.action_registry import ActionEnvelope
 from app.services.audit import AuditService
 from app.services.confirmations import ConfirmationService
+from app.services.learning import LearningService
 
 
 class ExecutionRecord(BaseModel):
@@ -122,6 +123,10 @@ class ExecutionService:
                 "artifact_dir": artifact_dir,
             },
             artifact_dir=artifact_dir,
+        )
+        LearningService(self.session).record_execution_case(
+            job,
+            confirmation.strategy_profile_version,
         )
         self.confirmations.finish(confirmation.id, "succeeded")
         return ExecutionRecord(
