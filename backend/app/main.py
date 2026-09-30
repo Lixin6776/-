@@ -15,8 +15,14 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.execution.api_provider import ApiExecutionProvider
 from app.execution.cdp.factory import create_cdp_execution_provider
+from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable_snapshot
 from app.services.api_client import OceanEngineApiClient
-from app.services.monitor import MonitorProfile, MonitorService
+from app.services.monitor import (
+    AsyncMonitorService,
+    MonitorProfile,
+    MonitorService,
+    SnapshotReading,
+)
 from app.services.profiles import StrategyProfileService
 from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
@@ -67,10 +73,33 @@ async def lifespan(application: FastAPI):
         )
         return provider, close
 
-    application.state.monitor_service = MonitorService(
-        Path(settings.monitor_fixture_path),
-        profile_provider=current_profile,
-    )
+    if settings.monitor_source == "fixture":
+        application.state.monitor_service = MonitorService(
+            Path(settings.monitor_fixture_path),
+            interval_seconds=settings.monitor_interval_seconds,
+            profile_provider=current_profile,
+        )
+    else:
+
+        async def read_live_snapshot() -> SnapshotReading:
+            try:
+                snapshot = await LiveBoardSnapshotReader(
+                    settings.cdp_endpoint,
+                    page_marker=settings.live_board_page_marker,
+                ).read()
+                return SnapshotReading(snapshot=snapshot, source="cdp")
+            except Exception as exc:  # noqa: BLE001
+                return SnapshotReading(
+                    snapshot=unavailable_snapshot(),
+                    source="cdp-error",
+                    error=str(exc),
+                )
+
+        application.state.monitor_service = AsyncMonitorService(
+            read_live_snapshot,
+            interval_seconds=settings.monitor_interval_seconds,
+            profile_provider=current_profile,
+        )
     application.state.execution_provider_factory = execution_provider_factory
     yield
 

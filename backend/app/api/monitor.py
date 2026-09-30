@@ -1,4 +1,5 @@
 import asyncio
+from inspect import isawaitable
 
 from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
@@ -13,6 +14,8 @@ async def monitor_events(request: Request):
     async def stream():
         while True:
             event = service.tick()
+            if isawaitable(event):
+                event = await event
             yield {"event": "monitor", "data": event.model_dump_json()}
             await asyncio.sleep(service.interval_seconds)
 

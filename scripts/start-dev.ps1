@@ -2,9 +2,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $logs = Join-Path $root ".local\logs"
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 
-$python = Join-Path $root "backend\.venv\Scripts\python.exe"
+$python = $env:QCA_PYTHON
+if (-not $python) {
+  $python = Join-Path $root "backend\.venv\Scripts\python.exe"
+}
 if (-not (Test-Path -LiteralPath $python)) {
-  throw "Backend virtual environment not found. Run the backend setup first."
+  throw "Backend Python not found. Set QCA_PYTHON or run backend setup first."
 }
 
 $pnpm = (Get-Command pnpm.cmd -ErrorAction SilentlyContinue).Source

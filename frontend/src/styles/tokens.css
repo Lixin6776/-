@@ -204,3 +204,21 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
   border-radius: var(--radius-button);
   font-size: 13px;
 }
+
+.monitor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.monitor-meta time { margin-left: auto; }
+.monitor-signal {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+.monitor-signal-watch { color: var(--color-warning); }
+.monitor-signal-action { color: var(--color-danger); }

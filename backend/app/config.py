@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gpt-4.1-mini"
     monitor_fixture_path: str = "tests/fixtures/plan_live_snapshot.json"
+    monitor_source: str = "cdp"
+    monitor_interval_seconds: int = 300
+    live_board_page_marker: str = "board-next"
     cdp_endpoint: str = "http://127.0.0.1:9222"
     selector_config_path: str = ".local/selectors/qianchuan.json"
     api_base_url: str = "https://api.oceanengine.com"

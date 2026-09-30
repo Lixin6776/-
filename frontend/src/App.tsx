@@ -9,7 +9,7 @@ import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { ExecutionTimeline } from "./components/ExecutionTimeline";
-import { LiveMonitorPanel } from "./components/LiveMonitorPanel";
+import { LiveMonitorPanel, type LiveMonitorEvent } from "./components/LiveMonitorPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
 import {
   connectMonitor,
@@ -50,6 +50,7 @@ export default function App() {
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
+  const [monitorEvent, setMonitorEvent] = useState<LiveMonitorEvent | null>(null);
 
   useEffect(() => {
     getActiveProfile()
@@ -60,7 +61,7 @@ export default function App() {
     getLearningEvaluations().then(setEvaluations).catch(() => undefined);
     getLearningSuggestions().then(setSuggestions).catch(() => undefined);
     getApiConnectionStatus().then(setApiStatus).catch(() => undefined);
-    return connectMonitor(() => undefined);
+    return connectMonitor((event) => setMonitorEvent(event as LiveMonitorEvent));
   }, []);
 
   async function handleSend(message: string): Promise<ChatReply> {
@@ -107,7 +108,7 @@ export default function App() {
       <main className="workspace">
         <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
-          <LiveMonitorPanel />
+          <LiveMonitorPanel event={monitorEvent} />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
           <ExecutionTimeline jobs={jobs} />
           <ApiConnectionPanel

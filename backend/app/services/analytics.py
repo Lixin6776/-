@@ -14,8 +14,16 @@ class ComputedMetrics(BaseModel):
 
 class AnalyticsService:
     def compute(self, snapshot: MetricSnapshot) -> ComputedMetrics:
-        roi = snapshot.gmv / snapshot.spend if snapshot.spend > 0 else None
-        gpm = snapshot.gmv / (snapshot.views / 1000) if snapshot.views > 0 else None
+        roi = (
+            snapshot.roi
+            if snapshot.roi is not None
+            else (snapshot.gmv / snapshot.spend if snapshot.spend > 0 else None)
+        )
+        gpm = (
+            snapshot.gpm
+            if snapshot.gpm is not None
+            else (snapshot.gmv / (snapshot.views / 1000) if snapshot.views > 0 else None)
+        )
         return ComputedMetrics(
             roi=roi,
             gpm=gpm,

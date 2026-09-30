@@ -15,6 +15,8 @@ class MetricSnapshot(BaseModel):
     orders: int
     views: int
     online_viewers: int
+    roi: float | None = None
+    gpm: float | None = None
 
 
 class FixturePageAdapter:

@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from app.services.monitor import MonitorProfile, MonitorService
+from app.execution.cdp.fixture_adapter import MetricSnapshot
+from app.services.monitor import (
+    AsyncMonitorService,
+    MonitorProfile,
+    MonitorService,
+    SnapshotReading,
+)
 
 
 @pytest.fixture
@@ -65,3 +71,31 @@ def test_monitor_uses_current_profile_snapshot(monitor_service):
     assert "保利润" in event.banner
     assert "ROI >= 3.0" in event.banner
     assert "daily_budget_max" in event.banner
+
+
+@pytest.mark.asyncio
+async def test_async_monitor_emits_cdp_metrics_and_source():
+    snapshot = MetricSnapshot(
+        captured_at="2026-09-30T20:15:00+08:00",
+        freshness="fresh",
+        plan_status="active",
+        plan_budget=1200,
+        spend=400,
+        gmv=1000,
+        orders=20,
+        views=1000,
+        online_viewers=120,
+        roi=2.5,
+        gpm=1000,
+    )
+
+    async def provider():
+        return SnapshotReading(snapshot=snapshot, source="cdp")
+
+    event = await AsyncMonitorService(provider).tick()
+
+    assert event.source == "cdp"
+    assert event.freshness == "fresh"
+    assert event.metrics.roi == 2.5
+    assert event.metrics.gpm == 1000
+    assert event.metrics.online_viewers == 120
