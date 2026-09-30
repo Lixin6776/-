@@ -22,13 +22,19 @@ class Orchestrator:
     async def handle(
         self,
         message: str,
-        profile: StrategyProfile,
+        profile: StrategyProfile | None,
         learning_context: dict | None = None,
         read_only_context: dict | None = None,
     ) -> ChatResult:
+        if profile is None:
+            strategy_context = "当前投放策略：未配置；目标=未配置；约束={}"
+        else:
+            strategy_context = (
+                f"当前投放策略 v{profile.version}: {profile.business_direction}; "
+                f"{profile.primary_objective}; 约束={profile.hard_constraints}"
+            )
         context = (
-            f"当前策略画像 v{profile.version}: {profile.business_direction}; "
-            f"{profile.primary_objective}; 约束={profile.hard_constraints}; "
+            f"{strategy_context}; "
             f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}; "
             f"read_only_context={json.dumps(read_only_context, ensure_ascii=False, default=str)}"
         )

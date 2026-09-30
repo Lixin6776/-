@@ -16,7 +16,7 @@ test("strategy banner is always visible with profile data", () => {
       }}
     />
   );
-  expect(screen.getByText(/策略画像 v3/)).toBeInTheDocument();
+  expect(screen.getByText(/投放策略 v3/)).toBeInTheDocument();
   expect(screen.getByText(/ROI >= 2.5/)).toBeInTheDocument();
   expect(screen.getByText(/数据最新/)).toBeInTheDocument();
 });

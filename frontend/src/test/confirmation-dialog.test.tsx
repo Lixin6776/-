@@ -27,7 +27,7 @@ test("confirmation dialog shows diff and profile constraints", () => {
   expect(screen.getByText(/计划 A/)).toBeInTheDocument();
   expect(screen.getByText(/1000/)).toBeInTheDocument();
   expect(screen.getByText(/800/)).toBeInTheDocument();
-  expect(screen.getByText(/策略画像 v3/)).toBeInTheDocument();
+  expect(screen.getByText(/投放策略 v3/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "确认执行" }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
 });

@@ -33,7 +33,7 @@ type Props = {
   onCreated?: (profile: Record<string, unknown>) => void;
 };
 
-export function StrategyProfilePanel({ save = createStrategyProfile, onCreated }: Props) {
+export function InvestmentStrategyPanel({ save = createStrategyProfile, onCreated }: Props) {
   const [name, setName] = useState("默认策略");
   const [direction, setDirection] = useState("稳定放量");
   const [objective, setObjective] = useState("在 ROI >= 2.5 的前提下提升成交额");
@@ -58,9 +58,9 @@ export function StrategyProfilePanel({ save = createStrategyProfile, onCreated }
         notification_policy: { dedupe_minutes: 10 }
       });
       onCreated?.(created);
-      setMessage(`策略画像 v${created.version} 已激活。`);
+      setMessage(`投放策略 v${created.version} 已激活。`);
     } catch {
-      setMessage("策略画像保存失败，请检查参数。");
+      setMessage("投放策略保存失败，请检查参数。");
     } finally {
       setBusy(false);
     }
@@ -69,13 +69,13 @@ export function StrategyProfilePanel({ save = createStrategyProfile, onCreated }
   return (
     <section className="panel strategy-profile-panel">
       <div className="panel-heading">
-        <p className="eyebrow">Strategy profile</p>
-        <h2>策略画像</h2>
+        <p className="eyebrow">Investment strategy</p>
+        <h2>投放策略</h2>
       </div>
       <form className="action-form" onSubmit={submit}>
         <label>
           画像名称
-          <input aria-label="策略画像名称" value={name} onChange={(event) => setName(event.target.value)} required />
+          <input aria-label="投放策略名称" value={name} onChange={(event) => setName(event.target.value)} required />
         </label>
         <label>
           大方向
@@ -119,7 +119,7 @@ export function StrategyProfilePanel({ save = createStrategyProfile, onCreated }
           />
         </label>
         <button className="button-primary" type="submit" disabled={busy}>
-          {busy ? "保存中" : "创建并激活画像"}
+          {busy ? "保存中" : "创建并激活投放策略"}
         </button>
       </form>
       {message ? <p className="monitor-signal">{message}</p> : null}

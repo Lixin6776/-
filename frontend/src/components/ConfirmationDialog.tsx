@@ -34,7 +34,7 @@ export function ConfirmationDialog({
         <p>动作：{preview.action_name}</p>
         <pre>{JSON.stringify(preview.diff, null, 2)}</pre>
         <dl>
-          <div><dt>策略画像</dt><dd>策略画像 v{preview.strategy_profile_version}</dd></div>
+          <div><dt>投放策略</dt><dd>投放策略 v{preview.strategy_profile_version}</dd></div>
           <div><dt>硬约束</dt><dd>{JSON.stringify(preview.constraints ?? {})}</dd></div>
           <div><dt>有效期</dt><dd>{new Date(preview.expires_at).toLocaleString("zh-CN")}</dd></div>
         </dl>

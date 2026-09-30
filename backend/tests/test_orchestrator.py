@@ -93,16 +93,16 @@ def test_chat_api_includes_cached_read_only_context(client, profile):
     assert any("plan-1" in message.content for message in captured)
 
 
-def test_chat_api_without_profile_returns_clear_error(client):
+def test_chat_api_without_profile_still_answers(client):
     from app.api.chat import get_llm_provider
     from app.main import app
     from app.services.llm.fake import FakeLLMProvider
 
     app.dependency_overrides[get_llm_provider] = lambda: FakeLLMProvider(
-        content='{"kind":"analysis","message":"unused"}'
+        content='{"kind":"analysis","message":"可以先进行只读分析。"}'
     )
     response = client.post("/api/chat", json={"message": "看看 ROI"})
 
     assert response.status_code == 200
-    assert response.json()["kind"] == "error"
-    assert "策略画像" in response.json()["message"]
+    assert response.json()["kind"] == "analysis"
+    assert "只读分析" in response.json()["message"]

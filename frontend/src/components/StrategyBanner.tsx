@@ -10,7 +10,7 @@ export type StrategyBannerProfile = {
 export function StrategyBanner({ profile }: { profile: StrategyBannerProfile }) {
   return (
     <header className="strategy-banner">
-      <strong>策略画像 v{profile.version}</strong>
+      <strong>投放策略 v{profile.version}</strong>
       <span>{profile.business_direction}</span>
       <span>{profile.primary_objective}</span>
       <span>约束：{JSON.stringify(profile.hard_constraints)}</span>

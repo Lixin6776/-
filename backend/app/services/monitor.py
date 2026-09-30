@@ -73,7 +73,7 @@ class _MonitorCore:
             captured_at=snapshot.captured_at,
             freshness=snapshot.freshness,
             banner=(
-                f"当前策略画像 v{profile.version}；大方向={profile.business_direction}；"
+                f"当前投放策略 v{profile.version}；大方向={profile.business_direction}；"
                 f"目标={profile.primary_objective}；约束={profile.hard_constraints}"
             ),
             level=signal.level,

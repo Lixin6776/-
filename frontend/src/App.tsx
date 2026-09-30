@@ -13,7 +13,7 @@ import { LiveMonitorPanel, type LiveMonitorEvent } from "./components/LiveMonito
 import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
 import { PlanSnapshotPanel } from "./components/PlanSnapshotPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
-import { StrategyProfilePanel } from "./components/StrategyProfilePanel";
+import { InvestmentStrategyPanel } from "./components/InvestmentStrategyPanel";
 import {
   connectMonitor,
   createActionConfirmation,
@@ -32,7 +32,7 @@ import {
 const fallbackProfile: StrategyBannerProfile = {
   version: 0,
   business_direction: "未加载",
-  primary_objective: "等待本地服务返回策略画像",
+  primary_objective: "等待本地服务返回投放策略",
   hard_constraints: {},
   data_time: new Date().toISOString(),
   freshness: "stale"
@@ -111,7 +111,7 @@ export default function App() {
       <main className="workspace">
         <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
-          <StrategyProfilePanel
+          <InvestmentStrategyPanel
             onCreated={(value) =>
               setProfile({
                 ...(value as StrategyBannerProfile),

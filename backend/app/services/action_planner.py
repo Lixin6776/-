@@ -74,7 +74,7 @@ class ActionPlanner:
         warnings: list[str] = []
 
         if action.action_name.value not in profile.allowed_actions:
-            blockers.append(f"策略画像不允许执行动作 {action.action_name.value}")
+            blockers.append(f"投放策略不允许执行动作 {action.action_name.value}")
 
         normalized_params: dict = {}
         try:

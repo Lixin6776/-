@@ -44,7 +44,7 @@ async def lifespan(application: FastAPI):
                 return MonitorProfile(
                     version=0,
                     business_direction="未配置",
-                    primary_objective="请先创建策略画像",
+                    primary_objective="请先创建投放策略",
                     hard_constraints={},
                 )
             return MonitorProfile(

@@ -105,11 +105,13 @@ async def chat(
     try:
         profile = StrategyProfileService(db).get_active()
     except LookupError:
-        return ChatResult(
-            kind="error",
-            message="请先创建并激活策略画像，再使用 Chatbot 分析。",
-        )
+        profile = None
     if payload.proposed_action is not None:
+        if profile is None:
+            return ChatResult(
+                kind="error",
+                message="请先创建并激活投放策略，再生成操作预览。",
+            )
         snapshot = _plan_snapshot(request, payload.proposed_action)
         preview = ActionPlanner().preflight(payload.proposed_action, profile, snapshot)
         kind = "recommendation" if preview.allowed else "error"

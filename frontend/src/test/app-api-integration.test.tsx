@@ -59,7 +59,7 @@ vi.mock("../lib/api", () => ({
 
 test("app loads the active profile from the local API", async () => {
   render(<App />);
-  expect(await screen.findByText(/策略画像 v9/)).toBeInTheDocument();
+  expect(await screen.findByText(/投放策略 v9/)).toBeInTheDocument();
 });
 
 test("chat panel renders the assistant response", async () => {

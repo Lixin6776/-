@@ -41,7 +41,7 @@ def test_monitor_emits_profile_and_freshness(monitor_service):
     event = monitor_service.tick()
     assert event.profile_version >= 1
     assert event.freshness in {"fresh", "stale"}
-    assert "策略画像" in event.banner
+    assert "投放策略" in event.banner
 
 
 def test_monitor_detects_change_across_windows(tmp_path):
