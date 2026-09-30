@@ -34,9 +34,8 @@ type Props = {
 };
 
 export function InvestmentStrategyPanel({ save = createStrategyProfile, onCreated }: Props) {
-  const [name, setName] = useState("默认策略");
-  const [direction, setDirection] = useState("稳定放量");
-  const [objective, setObjective] = useState("在 ROI >= 2.5 的前提下提升成交额");
+  const [roiTarget, setRoiTarget] = useState("2.5");
+  const [objective, setObjective] = useState("在 ROI 达标的前提下提升成交额");
   const [dailyBudgetMax, setDailyBudgetMax] = useState("5000");
   const [interval, setInterval] = useState("5");
   const [message, setMessage] = useState("");
@@ -48,11 +47,14 @@ export function InvestmentStrategyPanel({ save = createStrategyProfile, onCreate
     setMessage("");
     try {
       const created = await save({
-        name,
-        business_direction: direction,
+        name: "默认投放策略",
+        business_direction: `ROI目标 ${roiTarget}`,
         primary_objective: objective,
         secondary_objectives: [],
-        hard_constraints: { daily_budget_max: Number(dailyBudgetMax) },
+        hard_constraints: {
+          daily_budget_max: Number(dailyBudgetMax),
+          roi_target: Number(roiTarget)
+        },
         monitoring_config: { interval_minutes: Number(interval) },
         allowed_actions: DEFAULT_ACTIONS,
         notification_policy: { dedupe_minutes: 10 }
@@ -74,15 +76,14 @@ export function InvestmentStrategyPanel({ save = createStrategyProfile, onCreate
       </div>
       <form className="action-form" onSubmit={submit}>
         <label>
-          画像名称
-          <input aria-label="投放策略名称" value={name} onChange={(event) => setName(event.target.value)} required />
-        </label>
-        <label>
-          大方向
+          ROI目标
           <input
-            aria-label="策略大方向"
-            value={direction}
-            onChange={(event) => setDirection(event.target.value)}
+            aria-label="ROI目标"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={roiTarget}
+            onChange={(event) => setRoiTarget(event.target.value)}
             required
           />
         </label>
