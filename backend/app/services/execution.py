@@ -1,13 +1,15 @@
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.execution.base import ExecutionProvider
+from app.execution.base import ExecutionProvider, UnknownExecutionState
 from app.models import ExecutionJob, ExecutionLog
 from app.services.action_registry import ActionEnvelope
 from app.services.audit import AuditService
@@ -22,6 +24,8 @@ class ExecutionRecord(BaseModel):
 
 
 class ExecutionService:
+    TERMINAL_STATUSES: ClassVar[set[str]] = {"succeeded", "failed", "unknown", "cancelled"}
+
     def __init__(
         self,
         provider: ExecutionProvider,
@@ -33,19 +37,34 @@ class ExecutionService:
         self.confirmations = confirmations
         self.session = session
         self.audit = audit or AuditService(Path(".local/artifacts"))
+        self._events: dict[str, asyncio.Event] = {}
+        self._completed: dict[str, ExecutionRecord] = {}
 
     async def run_confirmation(self, confirmation_id: str) -> ExecutionRecord:
+        completed = self._completed.get(confirmation_id)
+        if completed is not None:
+            return completed
+        event = self._events.get(confirmation_id)
+        if event is not None:
+            await event.wait()
+            return self._completed[confirmation_id]
+
         confirmation = self.confirmations.get(confirmation_id)
         if confirmation is None:
             raise ValueError("Confirmation not found")
         if not self.confirmations.claim(confirmation_id):
-            existing = self.session.scalar(
-                select(ExecutionJob).where(ExecutionJob.confirmation_id == confirmation_id)
-            )
-            if existing is None:
-                raise RuntimeError("Confirmation could not be claimed")
-            return self._record(existing)
+            return await self._wait_for_existing(confirmation_id)
 
+        event = asyncio.Event()
+        self._events[confirmation_id] = event
+        try:
+            record = await self._execute_claimed(confirmation)
+            self._completed[confirmation_id] = record
+            return record
+        finally:
+            event.set()
+
+    async def _execute_claimed(self, confirmation) -> ExecutionRecord:
         action = self._action_from_confirmation(confirmation)
         job = ExecutionJob(
             id=str(uuid.uuid4()),
@@ -67,12 +86,15 @@ class ExecutionService:
 
         job.status = "executing"
         self.session.commit()
-        result = await self.provider.execute(action)
-        self._log(job.id, "execute", {"before": result.before, "after": result.after})
+        try:
+            result = await self.provider.execute(action)
+            self._log(job.id, "execute", {"before": result.before, "after": result.after})
+            job.status = "verifying"
+            self.session.commit()
+            verification = await self.provider.verify(action, result)
+        except UnknownExecutionState as exc:
+            return self._unknown(job, str(exc))
 
-        job.status = "verifying"
-        self.session.commit()
-        verification = await self.provider.verify(action, result)
         self._log(
             job.id,
             "verify",
@@ -90,12 +112,7 @@ class ExecutionService:
         job.finished_at = datetime.now(UTC)
         job.result = {"before": result.before, "after": verification.after}
         self.session.commit()
-        artifact_dir = self.audit.record(
-            job.id,
-            result.before,
-            verification.after,
-            job.result,
-        )
+        artifact_dir = self.audit.record(job.id, result.before, verification.after, job.result)
         self._log(
             job.id,
             "audit",
@@ -113,6 +130,18 @@ class ExecutionService:
             before=result.before,
             after=verification.after,
         )
+
+    async def _wait_for_existing(self, confirmation_id: str) -> ExecutionRecord:
+        for _ in range(100):
+            job = self.session.scalar(
+                select(ExecutionJob).where(ExecutionJob.confirmation_id == confirmation_id)
+            )
+            if job is None:
+                raise RuntimeError("Confirmation could not be claimed")
+            if job.status in self.TERMINAL_STATUSES:
+                return self._record(job)
+            await asyncio.sleep(0.01)
+        raise RuntimeError("Execution job did not reach a terminal state")
 
     def logs_for(self, job_id: str) -> list[ExecutionLog]:
         return list(
@@ -171,6 +200,20 @@ class ExecutionService:
             status="failed",
             before=before or {},
             after=after,
+        )
+
+    def _unknown(self, job: ExecutionJob, message: str) -> ExecutionRecord:
+        job.status = "unknown"
+        job.error = message
+        job.finished_at = datetime.now(UTC)
+        job.result = {"before": {}, "after": {}}
+        self.session.commit()
+        self.confirmations.finish(job.confirmation_id, "failed")
+        return ExecutionRecord(
+            job_id=job.id,
+            status="unknown",
+            before={},
+            after={},
         )
 
     @staticmethod

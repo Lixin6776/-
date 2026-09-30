@@ -2,6 +2,10 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+
+class UnknownExecutionState(RuntimeError):
+    pass
+
 from app.services.action_registry import ActionEnvelope
 
 
