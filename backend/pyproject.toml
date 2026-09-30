@@ -27,7 +27,10 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-markers = ["cdp: requires a locally running Chrome/Edge with CDP"]
+markers = [
+  "cdp: requires a locally running Chrome/Edge with CDP",
+  "live: requires explicit QCA_RUN_LIVE_TESTS=1 opt-in",
+]
 
 [tool.ruff]
 line-length = 100

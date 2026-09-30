@@ -48,3 +48,25 @@ def profile(db_session):
     db_session.commit()
     db_session.refresh(item)
     return item
+
+@pytest.fixture
+def preview():
+    from datetime import UTC, datetime, timedelta
+
+    from app.services.action_planner import ActionPreview
+    from app.services.action_registry import ActionName
+
+    return ActionPreview(
+        action_name=ActionName.PAUSE_PLAN,
+        target_id="plan-1",
+        target_name="计划 A",
+        normalized_params={"target_id": "plan-1"},
+        diff={"status": {"before": "active", "after": "paused"}},
+        blockers=[],
+        warnings=[],
+        allowed=True,
+        strategy_profile_version=1,
+        expires_at=datetime.now(UTC) + timedelta(minutes=10),
+        preview_hash="hash-1",
+        idempotency_key="idem-1",
+    )

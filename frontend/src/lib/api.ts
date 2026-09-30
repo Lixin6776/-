@@ -21,3 +21,31 @@ export function connectMonitor(onEvent: (event: unknown) => void) {
   source.addEventListener("monitor", (event) => onEvent(JSON.parse(event.data)));
   return () => source.close();
 }
+export async function createActionConfirmation(action: {
+  action_name: string;
+  target_id: string;
+  params: Record<string, unknown>;
+}) {
+  const response = await fetch(`${API_BASE}/api/actions/confirmations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action })
+  });
+  if (!response.ok) throw new Error("Confirmation creation failed");
+  return response.json();
+}
+
+export async function executeActionConfirmation(confirmationId: string) {
+  const response = await fetch(
+    `${API_BASE}/api/actions/confirmations/${confirmationId}/execute`,
+    { method: "POST" }
+  );
+  if (!response.ok) throw new Error("Action execution failed");
+  return response.json();
+}
+
+export async function getExecutionJobs() {
+  const response = await fetch(`${API_BASE}/api/actions/jobs`);
+  if (!response.ok) throw new Error("Failed to load execution jobs");
+  return response.json();
+}

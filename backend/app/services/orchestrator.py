@@ -10,6 +10,7 @@ from app.services.llm.base import LLMMessage, LLMProvider
 class ChatResult(BaseModel):
     kind: str
     message: str
+    preview: dict | None = None
 
 
 class Orchestrator:

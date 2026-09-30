@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 
-import { ChatPanel } from "./components/ChatPanel";
+import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
+import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
+import { ExecutionTimeline } from "./components/ExecutionTimeline";
 import { LiveMonitorPanel } from "./components/LiveMonitorPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
-import { connectMonitor, getActiveProfile, sendChat } from "./lib/api";
+import {
+  connectMonitor,
+  createActionConfirmation,
+  executeActionConfirmation,
+  getActiveProfile,
+  getExecutionJobs,
+  sendChat
+} from "./lib/api";
 
 const fallbackProfile: StrategyBannerProfile = {
   version: 0,
@@ -15,31 +24,63 @@ const fallbackProfile: StrategyBannerProfile = {
   freshness: "stale"
 };
 
+type ExecutionJob = {
+  id: string;
+  action_name: string;
+  status: string;
+  created_at: string;
+};
+
 export default function App() {
   const [profile, setProfile] = useState<StrategyBannerProfile>(fallbackProfile);
+  const [selectedPreview, setSelectedPreview] = useState<ActionPreview | null>(null);
+  const [jobs, setJobs] = useState<ExecutionJob[]>([]);
 
   useEffect(() => {
     getActiveProfile()
       .then((value) => setProfile(value as StrategyBannerProfile))
       .catch(() => setProfile(fallbackProfile));
+    getExecutionJobs().then((value) => setJobs(value as ExecutionJob[])).catch(() => undefined);
     return connectMonitor(() => undefined);
   }, []);
 
-  async function handleSend(message: string) {
+  async function handleSend(message: string): Promise<ChatReply> {
     const result = await sendChat(message);
-    return result.message as string;
+    return {
+      message: result.message as string,
+      preview: result.preview as ActionPreview | undefined
+    };
+  }
+
+  async function confirmAction(preview: ActionPreview) {
+    const confirmation = await createActionConfirmation({
+      action_name: preview.action_name,
+      target_id: preview.target_id,
+      params: preview.normalized_params
+    });
+    const job = await executeActionConfirmation(confirmation.id);
+    setJobs((current) => [job as ExecutionJob, ...current]);
+    setSelectedPreview(null);
   }
 
   return (
     <div className="app-shell">
       <StrategyBanner profile={profile} />
       <main className="workspace">
-        <ChatPanel onSend={handleSend} />
+        <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
         <aside className="context-column">
           <LiveMonitorPanel />
           <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />
+          <ExecutionTimeline jobs={jobs} />
         </aside>
       </main>
+      {selectedPreview ? (
+        <ConfirmationDialog
+          preview={{ ...selectedPreview, constraints: profile.hard_constraints }}
+          onConfirm={confirmAction}
+          onCancel={() => setSelectedPreview(null)}
+        />
+      ) : null}
     </div>
   );
 }
