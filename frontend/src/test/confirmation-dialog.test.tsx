@@ -54,3 +54,28 @@ test("confirmation dialog disables execution when blockers exist", () => {
   );
   expect(screen.getByRole("button", { name: "确认执行" })).toBeDisabled();
 });
+
+test("destructive confirmation requires explicit acknowledgement", () => {
+  render(
+    <ConfirmationDialog
+      preview={{
+        action_name: "delete_plan",
+        target_id: "plan-1",
+        normalized_params: { reason: "长期亏损" },
+        target_name: "计划 A",
+        diff: { plan: { before: "plan-1", after: null } },
+        blockers: [],
+        destructive: true,
+        strategy_profile_version: 3,
+        constraints: { daily_budget_max: 5000 },
+        expires_at: "2099-09-30T20:25:00+08:00",
+        requires_confirmation: true
+      }}
+      onConfirm={() => undefined}
+      onCancel={() => undefined}
+    />
+  );
+  expect(screen.getByRole("button", { name: "确认执行" })).toBeDisabled();
+  fireEvent.click(screen.getByLabelText("我了解此操作不可逆"));
+  expect(screen.getByRole("button", { name: "确认执行" })).toBeEnabled();
+});

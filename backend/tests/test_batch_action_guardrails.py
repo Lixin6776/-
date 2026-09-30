@@ -61,3 +61,22 @@ def test_batch_confirmation_api_is_all_or_abort(client, profile, plan_snapshot):
         },
     )
     assert response.status_code == 409
+
+def test_batch_preview_handles_missing_target_key_error(client, profile, plan_snapshot):
+    def provider(target_id):
+        if target_id == "plan-1":
+            return plan_snapshot
+        raise KeyError(target_id)
+
+    client.app.state.plan_snapshot_provider = provider
+    response = client.post(
+        "/api/actions/batch-preview",
+        json={
+            "actions": [
+                {"action_name": "pause_plan", "target_id": "plan-1", "params": {}},
+                {"action_name": "pause_plan", "target_id": "missing-plan", "params": {}},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert all(not item["allowed"] for item in response.json())

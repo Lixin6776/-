@@ -189,8 +189,8 @@ class ActionPlanner:
         previews: list[ActionPreview] = []
         for action in actions:
             plan = plans.get(action.target_id)
-            if plan is None:
-                plan = PlanSnapshot(
+            if plan is None or plan.status == "missing":
+                plan = plan or PlanSnapshot(
                     id=action.target_id,
                     name="未知计划",
                     status="missing",

@@ -10,13 +10,23 @@ from app.db import get_db
 from app.dependencies import get_plan_snapshot
 from app.models import ExecutionJob
 from app.schemas import ExecutionJobRead, PendingConfirmationRead
-from app.services.action_planner import ActionPlanner, ActionPreview
+from app.services.action_planner import ActionPlanner, ActionPreview, PlanSnapshot
 from app.services.action_registry import ActionEnvelope
 from app.services.confirmations import ConfirmationService
 from app.services.execution import ExecutionService
 from app.services.profiles import StrategyProfileService
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
+def _load_plan_or_missing(request: Request, target_id: str) -> PlanSnapshot:
+    try:
+        return get_plan_snapshot(request, target_id)
+    except (KeyError, ValueError):
+        return PlanSnapshot(
+            id=target_id,
+            name="未知计划",
+            status="missing",
+            budget=0,
+        )
 
 
 class ActionPreviewRequest(BaseModel):
@@ -68,7 +78,7 @@ def batch_preview(
 ):
     profile = StrategyProfileService(db).get_active()
     plans = {
-        action.target_id: get_plan_snapshot(request, action.target_id)
+        action.target_id: _load_plan_or_missing(request, action.target_id)
         for action in payload.actions
     }
     return ActionPlanner().preflight_batch(payload.actions, profile, plans)
@@ -86,7 +96,7 @@ def batch_confirmations(
 ):
     profile = StrategyProfileService(db).get_active()
     plans = {
-        action.target_id: get_plan_snapshot(request, action.target_id)
+        action.target_id: _load_plan_or_missing(request, action.target_id)
         for action in payload.actions
     }
     previews = ActionPlanner().preflight_batch(payload.actions, profile, plans)

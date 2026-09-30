@@ -13,6 +13,7 @@ import {
   executeActionConfirmation,
   getActiveProfile,
   getExecutionJobs,
+  previewAction,
   sendChat
 } from "./lib/api";
 
@@ -53,6 +54,19 @@ export default function App() {
     };
   }
 
+  async function handleAdvancedAction(actionName: string, params: Record<string, unknown>) {
+    const targetId = String(params.target_id);
+    const actionParams = Object.fromEntries(
+      Object.entries(params).filter(([key]) => key !== "target_id")
+    );
+    const preview = await previewAction({
+      action_name: actionName,
+      target_id: targetId,
+      params: actionParams
+    });
+    setSelectedPreview(preview as ActionPreview);
+  }
+
   async function confirmAction(preview: ActionPreview) {
     const confirmation = await createActionConfirmation({
       action_name: preview.action_name,
@@ -75,7 +89,7 @@ export default function App() {
           <ExecutionTimeline jobs={jobs} />
           <details className="panel advanced-actions">
             <summary>高级投放操作</summary>
-            <ActionParameterForm actionName="copy_plan" onSubmit={() => undefined} />
+            <ActionParameterForm actionName="copy_plan" onSubmit={(params) => handleAdvancedAction("copy_plan", params)} />
           </details>
         </aside>
       </main>

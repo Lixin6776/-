@@ -49,3 +49,16 @@ export async function getExecutionJobs() {
   if (!response.ok) throw new Error("Failed to load execution jobs");
   return response.json();
 }
+export async function previewAction(action: {
+  action_name: string;
+  target_id: string;
+  params: Record<string, unknown>;
+}) {
+  const response = await fetch(`${API_BASE}/api/actions/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action })
+  });
+  if (!response.ok) throw new Error("Action preview failed");
+  return response.json();
+}

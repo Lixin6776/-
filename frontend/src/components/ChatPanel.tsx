@@ -11,6 +11,7 @@ export type ActionPreview = {
   strategy_profile_version: number;
   expires_at: string;
   requires_confirmation: boolean;
+  destructive?: boolean;
 };
 
 export type ChatReply = {
