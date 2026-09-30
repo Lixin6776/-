@@ -11,6 +11,7 @@ def test_llm_status_never_returns_api_key(client, monkeypatch):
     response = client.get("/api/llm-connection/status")
 
     assert response.status_code == 200
+    assert response.json()["provider"] == "deepseek"
     assert response.json()["configured"] is True
     assert response.json()["api_key_configured"] is True
     assert "secret-key" not in response.text
@@ -65,7 +66,7 @@ def test_test_llm_connection_uses_provider(client, monkeypatch):
     monkeypatch.setattr(module.settings, "llm_api_key", "secret-key")
     monkeypatch.setattr(module.settings, "llm_base_url", "https://llm.example/v1")
     monkeypatch.setattr(module.settings, "llm_model", "test-model")
-    monkeypatch.setattr(module, "OpenAICompatibleProvider", FakeProvider)
+    monkeypatch.setattr(module, "DeepSeekProvider", FakeProvider)
 
     response = client.post("/api/llm-connection/test")
 

@@ -3,20 +3,21 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services.llm.base import LLMMessage
-from app.services.llm.openai_compatible import OpenAICompatibleProvider
+from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm_config import save_llm_config
 
 router = APIRouter(prefix="/api/llm-connection", tags=["llm-connection"])
 
 
 class LlmConfigRequest(BaseModel):
-    base_url: str = Field(min_length=1)
-    model: str = Field(min_length=1)
+    base_url: str = Field(default="https://api.deepseek.com", min_length=1)
+    model: str = Field(default="deepseek-chat", min_length=1)
     api_key: str = ""
 
 
 def _status() -> dict:
     return {
+        "provider": "deepseek",
         "configured": bool(settings.llm_api_key and settings.llm_base_url and settings.llm_model),
         "base_url": settings.llm_base_url,
         "model": settings.llm_model,
@@ -44,7 +45,7 @@ def save_llm_connection(payload: LlmConfigRequest) -> dict:
 async def test_llm_connection() -> dict:
     if not settings.llm_api_key:
         raise HTTPException(status_code=400, detail="请先配置大模型 API Key")
-    provider = OpenAICompatibleProvider(
+    provider = DeepSeekProvider(
         base_url=settings.llm_base_url,
         api_key=settings.llm_api_key,
         model=settings.llm_model,

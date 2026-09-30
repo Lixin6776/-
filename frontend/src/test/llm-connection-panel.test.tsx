@@ -4,39 +4,36 @@ import { vi } from "vitest";
 import { LlmConnectionPanel } from "../components/LlmConnectionPanel";
 
 
-test("LLM panel saves local configuration and tests connection", async () => {
+test("DeepSeek panel saves local configuration and tests connection", async () => {
   const load = vi.fn().mockResolvedValue({
     configured: true,
-    base_url: "https://llm.example/v1",
-    model: "test-model",
+    base_url: "https://api.deepseek.com",
+    model: "deepseek-chat",
     api_key_configured: true
   });
   const save = vi.fn().mockResolvedValue({
     configured: true,
-    base_url: "https://llm.example/v2",
-    model: "test-model-2",
+    base_url: "https://api.deepseek.com",
+    model: "deepseek-reasoner",
     api_key_configured: true
   });
   const test = vi.fn().mockResolvedValue({ ok: true, message: "大模型连接成功" });
 
   render(<LlmConnectionPanel load={load} save={save} test={test} />);
 
-  expect(await screen.findByText(/已配置：test-model/)).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("大模型 API 地址"), {
-    target: { value: "https://llm.example/v2" }
+  expect(await screen.findByText(/已配置：deepseek-chat/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("DeepSeek 模型"), {
+    target: { value: "deepseek-reasoner" }
   });
-  fireEvent.change(screen.getByLabelText("大模型模型名称"), {
-    target: { value: "test-model-2" }
-  });
-  fireEvent.change(screen.getByLabelText("大模型 API Key"), {
+  fireEvent.change(screen.getByLabelText("DeepSeek API Key"), {
     target: { value: "secret-key" }
   });
   fireEvent.click(screen.getByRole("button", { name: "保存配置" }));
 
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith({
-      base_url: "https://llm.example/v2",
-      model: "test-model-2",
+      base_url: "https://api.deepseek.com",
+      model: "deepseek-reasoner",
       api_key: "secret-key"
     })
   );

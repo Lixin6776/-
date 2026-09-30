@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./qianchuan.db"
     bind_host: str = "127.0.0.1"
     bind_port: int = 8000
-    llm_base_url: str = "https://api.openai.com/v1"
+    llm_base_url: str = "https://api.deepseek.com"
     llm_api_key: str = ""
-    llm_model: str = "gpt-4.1-mini"
+    llm_model: str = "deepseek-chat"
     monitor_fixture_path: str = "tests/fixtures/plan_live_snapshot.json"
     monitor_source: str = "cdp"
     monitor_interval_seconds: int = 300

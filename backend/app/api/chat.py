@@ -13,7 +13,7 @@ from app.models import LearningCase, StrategyEvaluation, StrategySuggestion
 from app.services.action_planner import ActionPlanner, PlanSnapshot
 from app.services.action_registry import ActionEnvelope, ActionName
 from app.services.llm.base import LLMProvider
-from app.services.llm.openai_compatible import OpenAICompatibleProvider
+from app.services.llm.deepseek import DeepSeekProvider
 from app.services.orchestrator import ChatResult, Orchestrator
 from app.services.profiles import StrategyProfileService
 
@@ -28,7 +28,7 @@ class ChatRequest(BaseModel):
 
 
 def get_llm_provider():
-    return OpenAICompatibleProvider(
+    return DeepSeekProvider(
         base_url=settings.llm_base_url,
         api_key=settings.llm_api_key,
         model=settings.llm_model,
