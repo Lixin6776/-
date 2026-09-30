@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.execution.base import ExecutionProvider
 from app.models import ExecutionJob, ExecutionLog
 from app.services.action_registry import ActionEnvelope
+from app.services.audit import AuditService
 from app.services.confirmations import ConfirmationService
 
 
@@ -25,10 +27,12 @@ class ExecutionService:
         provider: ExecutionProvider,
         confirmations: ConfirmationService,
         session: Session,
+        audit: AuditService | None = None,
     ) -> None:
         self.provider = provider
         self.confirmations = confirmations
         self.session = session
+        self.audit = audit or AuditService(Path(".local/artifacts"))
 
     async def run_confirmation(self, confirmation_id: str) -> ExecutionRecord:
         confirmation = self.confirmations.get(confirmation_id)
@@ -64,6 +68,7 @@ class ExecutionService:
         job.status = "executing"
         self.session.commit()
         result = await self.provider.execute(action)
+        self._log(job.id, "execute", {"before": result.before, "after": result.after})
 
         job.status = "verifying"
         self.session.commit()
@@ -85,6 +90,22 @@ class ExecutionService:
         job.finished_at = datetime.now(UTC)
         job.result = {"before": result.before, "after": verification.after}
         self.session.commit()
+        artifact_dir = self.audit.record(
+            job.id,
+            result.before,
+            verification.after,
+            job.result,
+        )
+        self._log(
+            job.id,
+            "audit",
+            {
+                "before": result.before,
+                "after": verification.after,
+                "artifact_dir": artifact_dir,
+            },
+            artifact_dir=artifact_dir,
+        )
         self.confirmations.finish(confirmation.id, "succeeded")
         return ExecutionRecord(
             job_id=job.id,
@@ -113,13 +134,20 @@ class ExecutionService:
             params=params,
         )
 
-    def _log(self, job_id: str, phase: str, payload: dict) -> None:
+    def _log(
+        self,
+        job_id: str,
+        phase: str,
+        payload: dict,
+        artifact_dir: str | None = None,
+    ) -> None:
         self.session.add(
             ExecutionLog(
                 id=str(uuid.uuid4()),
                 job_id=job_id,
                 phase=phase,
                 payload=json.loads(json.dumps(payload, ensure_ascii=False, default=str)),
+                artifact_dir=artifact_dir,
                 created_at=datetime.now(UTC),
             )
         )
