@@ -60,6 +60,13 @@ class CdpPlanReader:
         self.endpoint = validate_cdp_endpoint(endpoint)
         self.advertiser_id = advertiser_id
 
+    def read_current(self) -> PlanSnapshot:
+        with httpx.Client(timeout=5) as client:
+            response = client.get(f"{self.endpoint}/json/list")
+            response.raise_for_status()
+            targets = response.json()
+        return self.read(self._find_current_plan_id(targets))
+
     def read(self, plan_id: str) -> PlanSnapshot:
         with httpx.Client(timeout=5) as client:
             targets_response = client.get(f"{self.endpoint}/json/list")
@@ -133,6 +140,18 @@ class CdpPlanReader:
             page_text = value.get("text", "") if isinstance(value, dict) else ""
             raise RuntimeError(f"Could not read plan page: {page_text[:200]}")
         return parse_plan_detail_text(str(value["text"]), plan_id)
+
+    @staticmethod
+    def _find_current_plan_id(targets: list[dict]) -> str:
+        for target in targets:
+            url = str(target.get("url", ""))
+            if "overall-prom/detail" not in url:
+                continue
+            query = parse_qs(urlparse(url).query)
+            plan_id = query.get("adId", [None])[0]
+            if plan_id:
+                return str(plan_id)
+        raise RuntimeError("Current Qianchuan plan id was not found in CDP targets")
 
     @staticmethod
     def _find_advertiser_id(targets: list[dict]) -> str:

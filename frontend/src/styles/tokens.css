@@ -222,3 +222,11 @@ h1, h2 { font-weight: 600; letter-spacing: -0.02em; }
 }
 .monitor-signal-watch { color: var(--color-warning); }
 .monitor-signal-action { color: var(--color-danger); }
+
+.plan-snapshot-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.plan-snapshot-heading h2 { margin-bottom: 0; }

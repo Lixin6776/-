@@ -21,7 +21,14 @@ vi.mock("../lib/api", () => ({
   getLearningSuggestions: vi.fn().mockResolvedValue([]),
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
-  connectMonitor: vi.fn().mockReturnValue(() => undefined)
+  connectMonitor: vi.fn().mockReturnValue(() => undefined),
+  getCurrentPlanSnapshot: vi.fn().mockResolvedValue({
+    id: "plan-1",
+    name: "计划 plan-1",
+    status: "active",
+    budget: 1000,
+    roi_goal: 2.6
+  })
 }));
 
 test("app loads the active profile from the local API", async () => {

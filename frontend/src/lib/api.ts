@@ -94,3 +94,9 @@ export async function getApiConnectionStatus() {
   if (!response.ok) throw new Error("Failed to load API connection status");
   return response.json();
 }
+
+export async function getCurrentPlanSnapshot() {
+  const response = await fetch(`${API_BASE}/api/plans/current`);
+  if (!response.ok) throw new Error("Failed to load current plan snapshot");
+  return response.json();
+}
