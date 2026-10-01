@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
+from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,7 +12,9 @@ from app.api.chat import router as chat_router
 from app.api.learning import router as learning_router
 from app.api.live_reviews import router as live_reviews_router
 from app.api.llm_connection import router as llm_connection_router
+from app.api.material_analyses import router as material_analyses_router
 from app.api.monitor import router as monitor_router
+from app.api.notifications import router as notifications_router
 from app.api.plans import router as plans_router
 from app.api.profiles import router as profiles_router
 from app.api.recommendations import router as recommendations_router
@@ -23,12 +27,17 @@ from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
 from app.services.live_review import LiveReviewStore
 from app.services.llm_config import load_llm_config
+from app.services.material_analysis import (
+    MaterialAnalysisStore,
+    generate_and_publish_material_analysis,
+)
 from app.services.monitor import (
     AsyncMonitorService,
     MonitorProfile,
     MonitorService,
     SnapshotReading,
 )
+from app.services.notifications import NotificationHub
 from app.services.profiles import StrategyProfileService
 from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
@@ -36,6 +45,8 @@ from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     review_store = LiveReviewStore()
+    material_analysis_store = MaterialAnalysisStore()
+    notification_hub = NotificationHub()
     load_llm_config(settings)
     Base.metadata.create_all(bind=engine)
 
@@ -110,6 +121,27 @@ async def lifespan(application: FastAPI):
             profile_provider=current_profile,
             review_store=review_store,
         )
+    application.state.material_analysis_store = material_analysis_store
+    application.state.notification_hub = notification_hub
+
+    async def run_material_analysis() -> None:
+        await generate_and_publish_material_analysis(
+            application.state.monitor_service,
+            lambda: getattr(application.state, "latest_plan_snapshot", None),
+            material_analysis_store,
+            notification_hub,
+        )
+
+    scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
+    scheduler.add_job(
+        run_material_analysis,
+        CronTrigger(hour=8, minute=0, timezone="Asia/Shanghai"),
+        id="daily-material-analysis",
+        replace_existing=True,
+    )
+    scheduler.start()
+    application.state.scheduler = scheduler
+
     application.state.execution_provider_factory = execution_provider_factory
     application.state.plan_snapshot_provider = CdpPlanReader(settings.cdp_endpoint).read
     application.state.latest_plan_snapshot = None
@@ -131,6 +163,8 @@ app.include_router(monitor_router)
 app.include_router(plans_router)
 app.include_router(learning_router)
 app.include_router(live_reviews_router)
+app.include_router(material_analyses_router)
+app.include_router(notifications_router)
 app.include_router(llm_connection_router)
 app.include_router(recommendations_router)
 

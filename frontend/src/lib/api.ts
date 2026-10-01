@@ -159,3 +159,22 @@ export async function getLatestLiveReview() {
   if (!response.ok) throw new Error("Failed to load latest live review");
   return response.json();
 }
+export async function getMaterialAnalyses() {
+  const response = await fetch(`${API_BASE}/api/material-analyses`);
+  if (!response.ok) throw new Error("Failed to load material analyses");
+  return response.json();
+}
+
+export async function generateMaterialAnalysis() {
+  const response = await fetch(`${API_BASE}/api/material-analyses/generate`, {
+    method: "POST"
+  });
+  if (!response.ok) throw new Error("Material analysis generation failed");
+  return response.json();
+}
+
+export function connectNotifications(onEvent: (event: unknown) => void) {
+  const source = new EventSource(`${API_BASE}/api/notifications/events`);
+  source.addEventListener("notification", (event) => onEvent(JSON.parse(event.data)));
+  return () => source.close();
+}

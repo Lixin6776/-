@@ -4,7 +4,7 @@ import { ActionParameterForm } from "./components/ActionParameterForm";
 import { ApiConnectionPanel } from "./components/ApiConnectionPanel";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { LiveReviewList, type LiveReview } from "./components/LiveReviewList";
-import { StrategyEvaluationPanel } from "./components/StrategyEvaluationPanel";
+import { MaterialAnalysisList, type MaterialAnalysis } from "./components/MaterialAnalysisList";
 import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
@@ -22,8 +22,10 @@ import {
   getExecutionJobs,
   getApiConnectionStatus,
   getLiveReviews,
-  getLearningEvaluations,
   getLearningSuggestions,
+  getMaterialAnalyses,
+  generateMaterialAnalysis,
+  connectNotifications,
   decideLearningSuggestion,
   previewAction,
   sendChat
@@ -54,7 +56,7 @@ const tools: Array<{ id: ToolWindow; label: string }> = [
   { id: "llm", label: "大模型" },
   { id: "api", label: "API 连接" },
   { id: "learning", label: "直播复盘" },
-  { id: "evaluation", label: "策略评估" },
+  { id: "evaluation", label: "素材分析" },
   { id: "suggestions", label: "策略建议" },
   { id: "advanced", label: "高级操作" }
 ];
@@ -64,7 +66,7 @@ export default function App() {
   const [selectedPreview, setSelectedPreview] = useState<ActionPreview | null>(null);
   const [jobs, setJobs] = useState<ExecutionJob[]>([]);
   const [reviews, setReviews] = useState<LiveReview[]>([]);
-  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [materialAnalyses, setMaterialAnalyses] = useState<MaterialAnalysis[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
   const [monitorEvent, setMonitorEvent] = useState<LiveMonitorEvent | null>(null);
@@ -77,10 +79,33 @@ export default function App() {
       .catch(() => setProfile(fallbackProfile));
     getExecutionJobs().then((value) => setJobs(value as ExecutionJob[])).catch(() => undefined);
     getLiveReviews().then(setReviews).catch(() => undefined);
-    getLearningEvaluations().then(setEvaluations).catch(() => undefined);
+    getMaterialAnalyses()
+      .then((value) => {
+        setMaterialAnalyses(value);
+        if (value[0]) setIncomingMessage({ id: value[0].id, content: value[0].report_markdown });
+      })
+      .catch(() => undefined);
     getLearningSuggestions().then(setSuggestions).catch(() => undefined);
     getApiConnectionStatus().then(setApiStatus).catch(() => undefined);
-    return connectMonitor((event) => setMonitorEvent(event as LiveMonitorEvent));
+    const disconnectMonitor = connectMonitor((event) => setMonitorEvent(event as LiveMonitorEvent));
+    const disconnectNotifications = connectNotifications((event) => {
+      const payload = event as { type?: string; id?: string; message?: string; created_at?: string };
+      if (payload.type !== "material_analysis" || !payload.id || !payload.message) return;
+      const analysis = {
+        id: payload.id,
+        date: new Date(payload.created_at ?? Date.now()).toISOString().slice(0, 10),
+        created_at: payload.created_at ?? new Date().toISOString(),
+        report_markdown: payload.message
+      };
+      setMaterialAnalyses((current) =>
+        current.some((item) => item.id === analysis.id) ? current : [analysis, ...current]
+      );
+      setIncomingMessage({ id: analysis.id, content: analysis.report_markdown });
+    });
+    return () => {
+      disconnectMonitor();
+      disconnectNotifications();
+    };
   }, []);
 
   useEffect(() => {
@@ -162,10 +187,17 @@ export default function App() {
     }
     if (activeWindow === "learning") return <LiveReviewList reviews={reviews} />;
     if (activeWindow === "evaluation") {
-      return evaluations[0] ? (
-        <StrategyEvaluationPanel evaluation={evaluations[0]} />
-      ) : (
-        <p className="empty-state">暂无策略评估。</p>
+      return (
+        <MaterialAnalysisList
+          analyses={materialAnalyses}
+          onGenerate={async () => {
+            const analysis = await generateMaterialAnalysis();
+            setMaterialAnalyses((current) =>
+              current.some((item) => item.id === analysis.id) ? current : [analysis, ...current]
+            );
+            setIncomingMessage({ id: analysis.id, content: analysis.report_markdown });
+          }}
+        />
       );
     }
     if (activeWindow === "suggestions") {

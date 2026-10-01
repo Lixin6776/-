@@ -28,6 +28,14 @@ vi.mock("../lib/api", () => ({
   getLearningCases: vi.fn().mockResolvedValue([]),
   getLearningEvaluations: vi.fn().mockResolvedValue([]),
   getLiveReviews: vi.fn().mockResolvedValue([]),
+  getMaterialAnalyses: vi.fn().mockResolvedValue([]),
+  generateMaterialAnalysis: vi.fn().mockResolvedValue({
+    id: "m1",
+    date: "2026-10-01",
+    created_at: "2026-10-01T08:00:00+08:00",
+    report_markdown: "## 素材分析报告｜2026-10-01"
+  }),
+  connectNotifications: vi.fn().mockReturnValue(() => undefined),
   getLearningSuggestions: vi.fn().mockResolvedValue([]),
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
