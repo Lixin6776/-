@@ -1,5 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
@@ -23,6 +27,7 @@ from app.db import Base, SessionLocal, engine
 from app.execution.api_provider import ApiExecutionProvider
 from app.execution.cdp.factory import create_cdp_execution_provider
 from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable_snapshot
+from app.execution.cdp.material_reader import CdpMaterialReader
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
 from app.services.live_review import LiveReviewStore
@@ -42,10 +47,34 @@ from app.services.profiles import StrategyProfileService
 from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
 
+async def refresh_plan_snapshot(application: FastAPI) -> None:
+    try:
+        application.state.latest_plan_snapshot = await asyncio.to_thread(
+            CdpPlanReader(settings.cdp_endpoint).read_current
+        )
+    except Exception:  # noqa: BLE001
+        return
+
+
+async def run_material_analysis_job(application: FastAPI) -> dict:
+    if getattr(application.state, "latest_plan_snapshot", None) is None:
+        await refresh_plan_snapshot(application)
+    local_today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    return await generate_and_publish_material_analysis(
+        application.state.monitor_service,
+        lambda: getattr(application.state, "latest_plan_snapshot", None),
+        application.state.material_analysis_store,
+        application.state.notification_hub,
+        material_reader=application.state.material_reader,
+        analysis_date=local_today - timedelta(days=1),
+    )
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     review_store = LiveReviewStore()
     material_analysis_store = MaterialAnalysisStore()
+    material_reader = CdpMaterialReader(settings.cdp_endpoint)
     notification_hub = NotificationHub()
     load_llm_config(settings)
     Base.metadata.create_all(bind=engine)
@@ -122,19 +151,14 @@ async def lifespan(application: FastAPI):
             review_store=review_store,
         )
     application.state.material_analysis_store = material_analysis_store
+    application.state.material_reader = material_reader
     application.state.notification_hub = notification_hub
 
-    async def run_material_analysis() -> None:
-        await generate_and_publish_material_analysis(
-            application.state.monitor_service,
-            lambda: getattr(application.state, "latest_plan_snapshot", None),
-            material_analysis_store,
-            notification_hub,
-        )
+    application.state.material_analysis_runner = partial(run_material_analysis_job, application)
 
     scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
     scheduler.add_job(
-        run_material_analysis,
+        application.state.material_analysis_runner,
         CronTrigger(hour=8, minute=0, timezone="Asia/Shanghai"),
         id="daily-material-analysis",
         replace_existing=True,

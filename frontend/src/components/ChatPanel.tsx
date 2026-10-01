@@ -39,7 +39,7 @@ function parseStrategyCard(content: string): StrategyCard | null {
 }
 
 function MessageContent({ content }: { content: string }) {
-  if (content.startsWith("## 直播复盘")) {
+  if (content.startsWith("## 直播复盘") || content.startsWith("## 素材分析报告")) {
     return <pre className="review-message">{content}</pre>;
   }
   const card = parseStrategyCard(content);
