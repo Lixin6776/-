@@ -39,10 +39,12 @@ test("plan snapshot panel displays read-only plan data", async () => {
   );
 
   expect(await screen.findByText("直播大屏")).toBeInTheDocument();
-  expect(await screen.findByText(/9,999,999/)).toBeInTheDocument();
-  expect(screen.getByText(/目标ROI：2\.60/)).toBeInTheDocument();
+  expect(screen.getByText(/计划 1876023119718580/)).toBeInTheDocument();
   expect(screen.getByText("1.86")).toBeInTheDocument();
   expect(screen.getByText(/59,246.58/)).toBeInTheDocument();
+  expect(screen.getByText(/109,600/)).toBeInTheDocument();
+  expect(screen.getByText("699")).toBeInTheDocument();
+  expect(screen.getByText(/3,081.75/)).toBeInTheDocument();
   expect(screen.getByText("45")).toBeInTheDocument();
   expect(screen.getByText("投放中")).toBeInTheDocument();
 });
