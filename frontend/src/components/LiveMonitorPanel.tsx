@@ -11,6 +11,12 @@ export type LiveMonitorEvent = {
     gmv: number;
     orders: number;
     online_viewers: number;
+    views?: number | null;
+    exposure_count?: number | null;
+    view_count?: number | null;
+    product_clicks?: number | null;
+    view_conversion_rate?: number | null;
+    exposure_view_rate?: number | null;
   };
 };
 

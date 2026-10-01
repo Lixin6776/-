@@ -23,6 +23,17 @@ def _number_after(text: str, label: str) -> float:
     return float(match.group(1).replace(",", ""))
 
 
+def _optional_number_after(text: str, label: str) -> float | None:
+    start = text.find(label)
+    if start < 0:
+        return None
+    tail = text[start + len(label) : start + len(label) + 200]
+    match = re.search(_NUMBER_PATTERN, tail)
+    if match is None:
+        return None
+    return float(match.group(1).replace(",", ""))
+
+
 def parse_live_board_text(
     text: str,
     captured_at: datetime | None = None,
@@ -39,6 +50,23 @@ def parse_live_board_text(
         online_viewers=int(_number_after(text, "实时在线人数")),
         roi=_number_after(text, "综合营销ROI"),
         gpm=_number_after(text, "GPM(元)"),
+        exposure_count=(
+            int(value)
+            if (value := _optional_number_after(text, "直播间整体曝光次数")) is not None
+            else None
+        ),
+        view_count=(
+            int(value)
+            if (value := _optional_number_after(text, "直播间观看次数")) is not None
+            else None
+        ),
+        product_clicks=(
+            int(value)
+            if (value := _optional_number_after(text, "商品点击次数")) is not None
+            else None
+        ),
+        view_conversion_rate=_optional_number_after(text, "观看成交转化率"),
+        exposure_view_rate=_optional_number_after(text, "曝光观看率(次数)"),
     )
 
 
@@ -127,4 +155,9 @@ def unavailable_snapshot() -> MetricSnapshot:
         online_viewers=0,
         roi=None,
         gpm=None,
+        exposure_count=None,
+        view_count=None,
+        product_clicks=None,
+        view_conversion_rate=None,
+        exposure_view_rate=None,
     )

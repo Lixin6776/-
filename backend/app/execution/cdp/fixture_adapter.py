@@ -17,6 +17,11 @@ class MetricSnapshot(BaseModel):
     online_viewers: int
     roi: float | None = None
     gpm: float | None = None
+    exposure_count: int | None = None
+    view_count: int | None = None
+    product_clicks: int | None = None
+    view_conversion_rate: float | None = None
+    exposure_view_rate: float | None = None
 
 
 class FixturePageAdapter:

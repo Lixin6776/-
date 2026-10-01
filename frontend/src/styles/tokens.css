@@ -569,3 +569,105 @@ body { font-size: 14px; line-height: 1.5; }
   .strategy-banner { min-height: auto; flex-wrap: wrap; padding: 8px 16px; }
   .strategy-banner-content { width: 100%; margin-left: 0; justify-content: flex-start; }
 }
+
+.qianchuan-live-screen {
+  margin: 12px 32px 0;
+  min-height: 700px;
+  padding: 18px 22px 14px;
+  overflow: hidden;
+  border-radius: 14px;
+  color: #f7fbff;
+  background:
+    radial-gradient(circle at 72% 0%, rgba(41, 106, 255, 0.42), transparent 32%),
+    linear-gradient(135deg, #071a4a 0%, #062b68 54%, #04183d 100%);
+  box-shadow: 0 8px 24px rgba(4, 24, 61, 0.22);
+}
+.qls-topbar, .qls-actions, .qls-brand, .qls-trend-head, .qls-chart-tools, .qls-legend,
+.qls-side-card header, .qls-footer { display: flex; align-items: center; }
+.qls-topbar { justify-content: space-between; gap: 20px; }
+.qls-brand { gap: 10px; font-size: 20px; }
+.qls-douyin {
+  width: 30px; height: 30px; display: grid; place-items: center;
+  border-radius: 7px; background: linear-gradient(135deg, #25f4ee, #fe2c55);
+  font-size: 17px; font-weight: 700;
+}
+.qls-brand i { width: 1px; height: 24px; background: rgba(255,255,255,.45); }
+.qls-qianchuan { font-weight: 600; }
+.qls-screen-title { padding-left: 10px; border-left: 1px solid rgba(255,255,255,.35); color: rgba(235,245,255,.82); font-size: 14px; }
+.qls-actions { gap: 10px; color: rgba(238,247,255,.82); font-size: 13px; }
+.qls-actions button {
+  min-height: 30px; padding: 4px 12px; border: 1px solid rgba(181,215,255,.45);
+  border-radius: 5px; background: rgba(7,25,70,.45); color: #eaf3ff;
+}
+.qls-announcement {
+  margin-top: 12px; padding: 8px 12px; border-radius: 5px;
+  background: rgba(12,43,104,.72); color: #dbe9ff; font-size: 13px;
+}
+.qls-announcement span {
+  margin-right: 8px; padding: 2px 8px; border-radius: 4px;
+  background: #3f7cff; color: #fff; font-size: 12px;
+}
+.qls-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; margin-top: 14px; }
+.qls-main { display: grid; gap: 12px; min-width: 0; }
+.qls-hero {
+  position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px; padding: 28px 30px 22px; border-radius: 14px;
+  background: linear-gradient(115deg, rgba(35,85,205,.86), rgba(34,91,213,.62));
+}
+.qls-hero-card span, .qls-secondary span {
+  display: block; color: rgba(232,244,255,.78); font-size: 13px;
+}
+.qls-hero-card strong { display: block; margin-top: 4px; font-size: 38px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.qls-plan-meta {
+  position: absolute; right: 18px; top: 12px; display: flex; flex-wrap: wrap;
+  justify-content: flex-end; gap: 8px; color: rgba(232,244,255,.78); font-size: 12px;
+}
+.qls-secondary {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px;
+  padding: 14px 18px; border-radius: 10px; background: rgba(4,28,75,.68);
+}
+.qls-secondary article { min-width: 0; }
+.qls-secondary strong { display: block; margin-top: 3px; font-size: 21px; font-variant-numeric: tabular-nums; }
+.qls-trend { min-height: 310px; padding: 16px 18px; border-radius: 10px; background: rgba(4,27,74,.72); }
+.qls-trend-head { justify-content: space-between; gap: 12px; }
+.qls-trend-head button {
+  margin-right: 8px; padding: 6px 14px; border: 1px solid rgba(180,210,255,.35);
+  border-radius: 999px; background: transparent; color: #dce9ff;
+}
+.qls-trend-head button.active { background: #fff; color: #1753c9; border-color: #fff; }
+.qls-chart-tools { gap: 10px; color: rgba(235,245,255,.82); font-size: 13px; }
+.qls-legend { flex-wrap: wrap; gap: 10px 16px; margin-top: 18px; color: rgba(235,245,255,.82); font-size: 12px; }
+.qls-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.qls-legend i, .qls-channel-body li i {
+  width: 8px; height: 8px; border-radius: 50%; background: #35a7ff;
+}
+.qls-chart-placeholder { position: relative; min-height: 210px; margin-top: 14px; border-radius: 6px; overflow: hidden; }
+.qls-gridlines { position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(255,255,255,.08) 0 1px, transparent 1px 42px); }
+.qls-chart-placeholder p { position: relative; margin: 86px 0 0; color: rgba(220,235,255,.6); text-align: center; }
+.qls-side { display: grid; gap: 12px; align-content: start; }
+.qls-side-card { min-height: 150px; padding: 14px; border-radius: 10px; background: rgba(4,27,74,.72); }
+.qls-side-card header { justify-content: space-between; gap: 8px; }
+.qls-side-card h3 { margin: 0; font-size: 16px; }
+.qls-side-card header span { color: rgba(226,240,255,.72); font-size: 12px; }
+.qls-channel-body { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; margin-top: 14px; }
+.qls-donut { width: 72px; height: 72px; border-radius: 50%; background: conic-gradient(#4f8cff 0 32%, #36b9ff 32% 58%, #8f72ff 58% 75%, #f0b35c 75% 90%, #5d6f9a 90% 100%); }
+.qls-channel-body ul, .qls-funnel { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.qls-channel-body li { display: flex; align-items: center; gap: 6px; color: rgba(235,245,255,.82); font-size: 12px; }
+.qls-channel-body li b { margin-left: auto; font-weight: 400; }
+.qls-funnel li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 4px; background: #174fab; font-size: 12px; }
+.qls-funnel li:nth-child(2) { background: #0f62c8; }
+.qls-funnel li:nth-child(3) { background: #0b73df; }
+.qls-funnel li:nth-child(4) { background: #087fe8; }
+.qls-funnel strong { font-variant-numeric: tabular-nums; }
+.qls-comments { min-height: 190px; }
+.qls-comments p { margin-top: 54px; color: rgba(220,235,255,.55); text-align: center; }
+.qls-footer { flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(180,210,255,.22); color: rgba(224,238,255,.72); font-size: 12px; }
+@media (max-width: 1200px) {
+  .qls-layout { grid-template-columns: 1fr; }
+  .qls-secondary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .qianchuan-live-screen { margin: 10px 12px 0; padding: 12px; }
+  .qls-hero, .qls-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qls-plan-meta { position: static; grid-column: 1 / -1; justify-content: flex-start; }
+}

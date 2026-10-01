@@ -10,6 +10,12 @@ class ComputedMetrics(BaseModel):
     gmv: float
     orders: int
     online_viewers: int
+    views: int = 0
+    exposure_count: int | None = None
+    view_count: int | None = None
+    product_clicks: int | None = None
+    view_conversion_rate: float | None = None
+    exposure_view_rate: float | None = None
 
 
 class AnalyticsService:
@@ -31,4 +37,10 @@ class AnalyticsService:
             gmv=snapshot.gmv,
             orders=snapshot.orders,
             online_viewers=snapshot.online_viewers,
+            views=snapshot.views,
+            exposure_count=snapshot.exposure_count,
+            view_count=snapshot.view_count,
+            product_clicks=snapshot.product_clicks,
+            view_conversion_rate=snapshot.view_conversion_rate,
+            exposure_view_rate=snapshot.exposure_view_rate,
         )

@@ -38,6 +38,22 @@ GPM(元)
 
 直播间整体曝光次数
 43,972
+
+观看成交转化率
+
+3.92
+
+曝光观看率(次数)
+
+5.37
+
+直播间观看次数
+
+2,369
+
+商品点击次数
+
+961
 """
 
 
@@ -55,6 +71,11 @@ def test_parse_live_board_text_extracts_core_metrics():
     assert snapshot.gpm == 3016.67
     assert snapshot.online_viewers == 128
     assert snapshot.views == 1683
+    assert snapshot.exposure_count == 43972
+    assert snapshot.view_count == 2369
+    assert snapshot.product_clicks == 961
+    assert snapshot.view_conversion_rate == 3.92
+    assert snapshot.exposure_view_rate == 5.37
 
 
 def test_parse_live_board_text_rejects_missing_required_metric():
