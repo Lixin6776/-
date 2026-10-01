@@ -8,6 +8,7 @@ from app.api.actions import router as actions_router
 from app.api.api_connection import router as api_connection_router
 from app.api.chat import router as chat_router
 from app.api.learning import router as learning_router
+from app.api.live_reviews import router as live_reviews_router
 from app.api.llm_connection import router as llm_connection_router
 from app.api.monitor import router as monitor_router
 from app.api.plans import router as plans_router
@@ -20,6 +21,7 @@ from app.execution.cdp.factory import create_cdp_execution_provider
 from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable_snapshot
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
+from app.services.live_review import LiveReviewStore
 from app.services.llm_config import load_llm_config
 from app.services.monitor import (
     AsyncMonitorService,
@@ -33,6 +35,7 @@ from app.services.provider_router import API_SUPPORTED_ACTIONS, ProviderRouter
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    review_store = LiveReviewStore()
     load_llm_config(settings)
     Base.metadata.create_all(bind=engine)
 
@@ -83,6 +86,7 @@ async def lifespan(application: FastAPI):
             Path(settings.monitor_fixture_path),
             interval_seconds=settings.monitor_interval_seconds,
             profile_provider=current_profile,
+            review_store=review_store,
         )
     else:
 
@@ -104,6 +108,7 @@ async def lifespan(application: FastAPI):
             read_live_snapshot,
             interval_seconds=settings.monitor_interval_seconds,
             profile_provider=current_profile,
+            review_store=review_store,
         )
     application.state.execution_provider_factory = execution_provider_factory
     application.state.plan_snapshot_provider = CdpPlanReader(settings.cdp_endpoint).read
@@ -125,6 +130,7 @@ app.include_router(api_connection_router)
 app.include_router(monitor_router)
 app.include_router(plans_router)
 app.include_router(learning_router)
+app.include_router(live_reviews_router)
 app.include_router(llm_connection_router)
 app.include_router(recommendations_router)
 

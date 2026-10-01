@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ActionParameterForm } from "./components/ActionParameterForm";
 import { ApiConnectionPanel } from "./components/ApiConnectionPanel";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
-import { LearningCaseList } from "./components/LearningCaseList";
+import { LiveReviewList, type LiveReview } from "./components/LiveReviewList";
 import { StrategyEvaluationPanel } from "./components/StrategyEvaluationPanel";
 import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
@@ -21,7 +21,7 @@ import {
   getActiveProfile,
   getExecutionJobs,
   getApiConnectionStatus,
-  getLearningCases,
+  getLiveReviews,
   getLearningEvaluations,
   getLearningSuggestions,
   decideLearningSuggestion,
@@ -53,7 +53,7 @@ const tools: Array<{ id: ToolWindow; label: string }> = [
   { id: "jobs", label: "执行记录" },
   { id: "llm", label: "大模型" },
   { id: "api", label: "API 连接" },
-  { id: "learning", label: "学习记录" },
+  { id: "learning", label: "直播复盘" },
   { id: "evaluation", label: "策略评估" },
   { id: "suggestions", label: "策略建议" },
   { id: "advanced", label: "高级操作" }
@@ -63,11 +63,12 @@ export default function App() {
   const [profile, setProfile] = useState<StrategyBannerProfile>(fallbackProfile);
   const [selectedPreview, setSelectedPreview] = useState<ActionPreview | null>(null);
   const [jobs, setJobs] = useState<ExecutionJob[]>([]);
-  const [learningCases, setLearningCases] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<LiveReview[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
   const [monitorEvent, setMonitorEvent] = useState<LiveMonitorEvent | null>(null);
+  const [incomingMessage, setIncomingMessage] = useState<{ id: string; content: string } | null>(null);
   const [activeWindow, setActiveWindow] = useState<ToolWindow | null>(null);
 
   useEffect(() => {
@@ -75,12 +76,21 @@ export default function App() {
       .then((value) => setProfile(value as StrategyBannerProfile))
       .catch(() => setProfile(fallbackProfile));
     getExecutionJobs().then((value) => setJobs(value as ExecutionJob[])).catch(() => undefined);
-    getLearningCases().then(setLearningCases).catch(() => undefined);
+    getLiveReviews().then(setReviews).catch(() => undefined);
     getLearningEvaluations().then(setEvaluations).catch(() => undefined);
     getLearningSuggestions().then(setSuggestions).catch(() => undefined);
     getApiConnectionStatus().then(setApiStatus).catch(() => undefined);
     return connectMonitor((event) => setMonitorEvent(event as LiveMonitorEvent));
   }, []);
+
+  useEffect(() => {
+    const review = monitorEvent?.review as LiveReview | undefined;
+    if (!review) return;
+    setReviews((current) =>
+      current.some((item) => item.id === review.id) ? current : [review, ...current]
+    );
+    setIncomingMessage({ id: review.id, content: review.report_markdown });
+  }, [monitorEvent]);
 
   async function handleSend(message: string): Promise<ChatReply> {
     const result = await sendChat(message);
@@ -150,7 +160,7 @@ export default function App() {
         />
       );
     }
-    if (activeWindow === "learning") return <LearningCaseList cases={learningCases} />;
+    if (activeWindow === "learning") return <LiveReviewList reviews={reviews} />;
     if (activeWindow === "evaluation") {
       return evaluations[0] ? (
         <StrategyEvaluationPanel evaluation={evaluations[0]} />
@@ -208,7 +218,11 @@ export default function App() {
           ))}
         </nav>
         <main className="chat-main">
-          <ChatPanel onSend={handleSend} onOpenConfirmation={setSelectedPreview} />
+          <ChatPanel
+            incomingMessage={incomingMessage}
+            onSend={handleSend}
+            onOpenConfirmation={setSelectedPreview}
+          />
         </main>
       </div>
       {activeWindow ? (

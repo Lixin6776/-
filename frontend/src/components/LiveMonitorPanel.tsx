@@ -4,6 +4,8 @@ export type LiveMonitorEvent = {
   level: "normal" | "watch" | "action" | string;
   reason: string;
   source: string;
+  live_ended?: boolean;
+  review?: { id: string; date: string; created_at: string; ended_at: string; report_markdown: string } | null;
   metrics: {
     roi: number | null;
     gpm: number | null;

@@ -147,3 +147,15 @@ export async function createStrategyProfile(profile: {
   if (!response.ok) throw new Error("Failed to create strategy profile");
   return response.json();
 }
+
+export async function getLiveReviews() {
+  const response = await fetch(`${API_BASE}/api/reviews`);
+  if (!response.ok) throw new Error("Failed to load live reviews");
+  return response.json();
+}
+
+export async function getLatestLiveReview() {
+  const response = await fetch(`${API_BASE}/api/reviews/latest`);
+  if (!response.ok) throw new Error("Failed to load latest live review");
+  return response.json();
+}

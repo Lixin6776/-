@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 export type ActionPreview = {
   action_name: string;
@@ -26,10 +26,7 @@ type StrategyCard = {
 };
 
 function parseStrategyCard(content: string): StrategyCard | null {
-  const lines = content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
   const title = lines.find((line) => line.startsWith("### 全域投放策略卡"));
   const plan = lines.find((line) => line.startsWith("**计划："));
   const items = lines.filter((line) => line.startsWith("- "));
@@ -42,6 +39,9 @@ function parseStrategyCard(content: string): StrategyCard | null {
 }
 
 function MessageContent({ content }: { content: string }) {
+  if (content.startsWith("## 直播复盘")) {
+    return <pre className="review-message">{content}</pre>;
+  }
   const card = parseStrategyCard(content);
   if (!card) return <p className="message-text">{content}</p>;
   return (
@@ -49,9 +49,7 @@ function MessageContent({ content }: { content: string }) {
       <h3>{card.title}</h3>
       <strong>{card.plan}</strong>
       <ul>
-        {card.items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
+        {card.items.map((item) => <li key={item}>{item}</li>)}
       </ul>
     </div>
   );
@@ -65,10 +63,12 @@ type Message = {
 
 export function ChatPanel({
   onSend,
-  onOpenConfirmation
+  onOpenConfirmation,
+  incomingMessage
 }: {
   onSend?: (message: string) => Promise<ChatReply>;
   onOpenConfirmation?: (preview: ActionPreview) => void;
+  incomingMessage?: { id: string; content: string } | null;
 }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -78,6 +78,16 @@ export function ChatPanel({
     }
   ]);
   const [pending, setPending] = useState(false);
+  const seenIncomingId = useRef("");
+
+  useEffect(() => {
+    if (!incomingMessage || seenIncomingId.current === incomingMessage.id) return;
+    seenIncomingId.current = incomingMessage.id;
+    setMessages((current) => [
+      ...current,
+      { role: "assistant", content: incomingMessage.content }
+    ]);
+  }, [incomingMessage]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,34 +120,34 @@ export function ChatPanel({
       </div>
       <div className="chat-stream" aria-live="polite">
         {messages.map((message, index) => (
-  <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
-    {message.role !== "system" ? (
-      <div className="chat-avatar" aria-hidden="true">
-        {message.role === "user" ? "我" : "助"}
-      </div>
-    ) : null}
-    <div className="message-body">
-      <span className={message.role === "system" ? "message-role-system" : "message-role"}>
-        {message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}
-      </span>
-      <MessageContent content={message.content} />
-      {message.preview ? (
-        <div className="action-preview-card">
-          <strong>{message.preview.target_name}</strong>
-          <span>{message.preview.action_name}</span>
-          <pre>{JSON.stringify(message.preview.diff, null, 2)}</pre>
-          <button
-            className="button-outline"
-            type="button"
-            onClick={() => onOpenConfirmation?.(message.preview!)}
-          >
-            查看并确认
-          </button>
-        </div>
-      ) : null}
-    </div>
-  </article>
-))}
+          <article className={`message message-${message.role}`} key={`${message.role}-${index}`}>
+            {message.role !== "system" ? (
+              <div className="chat-avatar" aria-hidden="true">
+                {message.role === "user" ? "我" : "助"}
+              </div>
+            ) : null}
+            <div className="message-body">
+              <span className={message.role === "system" ? "message-role-system" : "message-role"}>
+                {message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}
+              </span>
+              <MessageContent content={message.content} />
+              {message.preview ? (
+                <div className="action-preview-card">
+                  <strong>{message.preview.target_name}</strong>
+                  <span>{message.preview.action_name}</span>
+                  <pre>{JSON.stringify(message.preview.diff, null, 2)}</pre>
+                  <button
+                    className="button-outline"
+                    type="button"
+                    onClick={() => onOpenConfirmation?.(message.preview!)}
+                  >
+                    查看并确认
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </article>
+        ))}
       </div>
       <form className="composer" onSubmit={submit}>
         <input

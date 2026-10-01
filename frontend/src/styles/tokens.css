@@ -693,3 +693,10 @@ body { font-size: 14px; line-height: 1.5; }
   .qls-plan-meta { position: static; max-width: none; grid-column: auto; }
   .qls-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.live-review-list { display: grid; gap: 16px; }
+.live-review-item { padding: 16px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
+.live-review-item header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.live-review-item time { color: var(--color-text-secondary); font-size: 12px; }
+.live-review-item pre, .review-message { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); line-height: 1.7; }
+.review-message { padding: 12px; border-radius: 8px; background: var(--color-surface-muted); border: 1px solid var(--color-border); }

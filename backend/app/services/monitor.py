@@ -30,6 +30,8 @@ class MonitorEvent(BaseModel):
     source: str
     spend_delta: float | None = None
     minutes_since_previous: float | None = None
+    live_ended: bool = False
+    review: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,8 @@ class _MonitorCore:
         self.detector = ChangeDetector()
         self._previous_metrics: ComputedMetrics | None = None
         self._previous_captured_at: datetime | None = None
+        self._previous_plan_status: str | None = None
+        self.review_store = None
         self._latest_event: MonitorEvent | None = None
 
     def latest_event(self) -> MonitorEvent | None:
@@ -80,6 +84,14 @@ class _MonitorCore:
         reason = signal.reason
         if reading.error:
             reason = f"CDP 读取失败，已暂停判断：{reading.error}"
+        live_ended = snapshot.plan_status == "ended"
+        review = None
+        if live_ended and self.review_store is not None:
+            from app.services.live_review import build_live_review
+
+            review = self.review_store.add_if_absent(
+                build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+            )
         event = MonitorEvent(
             captured_at=snapshot.captured_at,
             freshness=snapshot.freshness,
@@ -96,7 +108,10 @@ class _MonitorCore:
             source=reading.source,
             spend_delta=spend_delta,
             minutes_since_previous=minutes_since_previous,
+            live_ended=live_ended,
+            review=review,
         )
+        self._previous_plan_status = snapshot.plan_status
         self._latest_event = event
         return event
 
@@ -108,12 +123,14 @@ class MonitorService(_MonitorCore):
         profile_version: int = 1,
         interval_seconds: int = 300,
         profile_provider: Callable[[], MonitorProfile] | None = None,
+        review_store=None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
         )
         self.fixture_path = fixture_path
+        self.review_store = review_store
         self.interval_seconds = interval_seconds
 
     def tick(self) -> MonitorEvent:
@@ -128,12 +145,14 @@ class AsyncMonitorService(_MonitorCore):
         profile_version: int = 1,
         interval_seconds: int = 300,
         profile_provider: Callable[[], MonitorProfile] | None = None,
+        review_store=None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
         )
         self.snapshot_provider = snapshot_provider
+        self.review_store = review_store
         self.interval_seconds = interval_seconds
 
     async def tick(self) -> MonitorEvent:

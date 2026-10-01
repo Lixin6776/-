@@ -27,6 +27,7 @@ vi.mock("../lib/api", () => ({
   getApiConnectionStatus: vi.fn().mockResolvedValue({ configured: false, provider_preference: "cdp" }),
   getLearningCases: vi.fn().mockResolvedValue([]),
   getLearningEvaluations: vi.fn().mockResolvedValue([]),
+  getLiveReviews: vi.fn().mockResolvedValue([]),
   getLearningSuggestions: vi.fn().mockResolvedValue([]),
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
