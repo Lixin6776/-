@@ -71,8 +71,7 @@ def _read_only_context(request: Request) -> dict:
 
 
 def _wants_strategy_card(message: str) -> bool:
-    keywords = ("策略卡", "策略", "投放", "计划", "ROI", "消耗", "直播", "分析", "怎么样", "情况")
-    return any(keyword in message for keyword in keywords)
+    return "策略卡" in message
 
 
 def _learning_context(db: Session) -> dict:

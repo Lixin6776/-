@@ -131,3 +131,29 @@ async def test_orchestrator_recovers_message_from_json_with_literal_newlines(pro
     result = await Orchestrator(llm).handle("总结一下", profile)
     assert result.kind == "analysis"
     assert result.message == "第一行\n第二行"
+
+def test_chat_api_answers_material_and_operation_log_question_instead_of_strategy_card(client, profile):
+    from app.api.chat import get_llm_provider
+    from app.main import app
+    from app.services.action_planner import PlanSnapshot
+    from app.services.llm.fake import FakeLLMProvider
+
+    app.state.latest_plan_snapshot = PlanSnapshot(
+        id="plan-1",
+        name="计划 plan-1",
+        status="active",
+        budget=1000,
+        roi_goal=2.6,
+    )
+    app.dependency_overrides[get_llm_provider] = lambda: FakeLLMProvider(
+        content='{"kind":"analysis","message":"已分别分析素材状态和操作日志。"}'
+    )
+
+    response = client.post(
+        "/api/chat",
+        json={"message": "1.素材不是在投放吗 2.你可以查看操作日志进行分析"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "已分别分析素材状态和操作日志。"
+    assert "投放策略卡" not in response.json()["message"]
