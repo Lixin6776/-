@@ -38,12 +38,43 @@ function parseStrategyCard(content: string): StrategyCard | null {
   };
 }
 
-function MessageContent({ content }: { content: string }) {
-  if (content.startsWith("## 直播复盘") || content.startsWith("## 素材分析报告")) {
-    return <pre className="review-message">{content}</pre>;
+function recoverRawJsonMessage(content: string): string | null {
+  const match = /"message"\s*:\s*"([\s\S]*?)"\s*[,}]/.exec(content);
+  if (!match) return null;
+  return match[1]
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\\"/g, '"');
+}
+
+function unwrapJsonMessage(content: string): string {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("```")) return content;
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  try {
+    const parsed = JSON.parse(withoutFence) as unknown;
+    if (typeof parsed === "string") return unwrapJsonMessage(parsed);
+    if (parsed && typeof parsed === "object" && "message" in parsed) {
+      const message = (parsed as { message?: unknown }).message;
+      if (typeof message === "string") return unwrapJsonMessage(message);
+    }
+  } catch {
+    const recovered = recoverRawJsonMessage(withoutFence);
+    return recovered === null ? content : unwrapJsonMessage(recovered);
   }
-  const card = parseStrategyCard(content);
-  if (!card) return <p className="message-text">{content}</p>;
+  return content;
+}
+
+function MessageContent({ content }: { content: string }) {
+  const displayContent = unwrapJsonMessage(content);
+  if (displayContent.startsWith("## 直播复盘") || displayContent.startsWith("## 素材分析报告")) {
+    return <pre className="review-message">{displayContent}</pre>;
+  }
+  const card = parseStrategyCard(displayContent);
+  if (!card) return <p className="message-text">{displayContent}</p>;
   return (
     <div className="strategy-card-message">
       <h3>{card.title}</h3>

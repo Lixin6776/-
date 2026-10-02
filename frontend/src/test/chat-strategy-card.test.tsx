@@ -27,3 +27,31 @@ test("chat panel renders strategy card as structured content", async () => {
   expect(container.querySelector(".message-user")).not.toBeNull();
   expect(container.querySelector(".message-assistant")).not.toBeNull();
 });
+
+
+test("chat panel unwraps json-formatted assistant messages", async () => {
+  const onSend = async () => ({
+    message: JSON.stringify({ kind: "analysis", message: "JSON 包装已恢复" })
+  });
+
+  render(<ChatPanel onSend={onSend} />);
+  fireEvent.change(screen.getByLabelText("输入投放问题"), { target: { value: "总结一下" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(await screen.findByText("JSON 包装已恢复")).toBeInTheDocument();
+  expect(screen.queryByText(/"kind"/)).not.toBeInTheDocument();
+});
+
+test("chat panel recovers json messages with literal newlines", async () => {
+  const onSend = async () => ({
+    message: '{\n  "kind": "analysis",\n  "message": "第一行\n第二行"\n}'
+  });
+
+  render(<ChatPanel onSend={onSend} />);
+  fireEvent.change(screen.getByLabelText("输入投放问题"), { target: { value: "总结一下" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(await screen.findByText(/第一行/)).toBeInTheDocument();
+  expect(screen.getByText(/第二行/)).toBeInTheDocument();
+  expect(screen.queryByText(/"kind"/)).not.toBeInTheDocument();
+});

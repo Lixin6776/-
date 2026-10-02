@@ -102,3 +102,32 @@ def test_chat_api_without_profile_still_answers(client):
     assert response.status_code == 200
     assert response.json()["kind"] == "analysis"
     assert "只读分析" in response.json()["message"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_accepts_json_code_fence(profile):
+    llm = FakeLLMProvider(
+        content='```json\n{"kind":"analysis","message":"代码块格式已恢复"}\n```'
+    )
+    result = await Orchestrator(llm).handle("总结一下", profile)
+    assert result.kind == "analysis"
+    assert result.message == "代码块格式已恢复"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_accepts_double_encoded_json(profile):
+    import json
+
+    content = json.dumps('{"kind":"analysis","message":"双重编码已恢复"}', ensure_ascii=False)
+    llm = FakeLLMProvider(content=content)
+    result = await Orchestrator(llm).handle("总结一下", profile)
+    assert result.kind == "analysis"
+    assert result.message == "双重编码已恢复"
+
+@pytest.mark.asyncio
+async def test_orchestrator_recovers_message_from_json_with_literal_newlines(profile):
+    content = '{\n  "kind": "analysis",\n  "message": "第一行\n第二行"\n}'
+    llm = FakeLLMProvider(content=content)
+    result = await Orchestrator(llm).handle("总结一下", profile)
+    assert result.kind == "analysis"
+    assert result.message == "第一行\n第二行"
