@@ -81,3 +81,12 @@ def test_parse_live_board_text_extracts_core_metrics():
 def test_parse_live_board_text_rejects_missing_required_metric():
     with pytest.raises(ValueError, match="综合成本"):
         parse_live_board_text("直播大屏\n正在直播")
+
+
+def test_parse_live_board_text_extracts_live_started_at():
+    captured_at = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
+    text = SAMPLE_TEXT + "\n开播时间：2026-09-30 06:00:51"
+    snapshot = parse_live_board_text(text, captured_at=captured_at)
+
+    assert snapshot.live_started_at is not None
+    assert snapshot.live_started_at.isoformat() == "2026-09-30T06:00:51+08:00"

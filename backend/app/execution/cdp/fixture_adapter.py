@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class MetricSnapshot(BaseModel):
     captured_at: datetime
+    live_started_at: datetime | None = None
     freshness: str
     plan_status: str
     plan_budget: float

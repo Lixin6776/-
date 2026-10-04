@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 from websockets.asyncio.client import connect
@@ -10,6 +11,18 @@ from app.execution.cdp.fixture_adapter import MetricSnapshot
 from app.execution.cdp.page_probe import validate_cdp_endpoint
 
 _NUMBER_PATTERN = r"([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)"
+
+
+def _optional_datetime_after(text: str, label: str, timezone: ZoneInfo) -> datetime | None:
+    start = text.find(label)
+    if start < 0:
+        return None
+    tail = text[start + len(label) : start + len(label) + 100]
+    match = re.search(r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})", tail)
+    if match is None:
+        return None
+    parsed = datetime.fromisoformat(match.group(1))
+    return parsed.replace(tzinfo=timezone)
 
 
 def _number_after(text: str, label: str) -> float:
@@ -40,6 +53,11 @@ def parse_live_board_text(
 ) -> MetricSnapshot:
     return MetricSnapshot(
         captured_at=captured_at or datetime.now(UTC),
+        live_started_at=_optional_datetime_after(
+            text,
+            "开播时间：",
+            ZoneInfo("Asia/Shanghai"),
+        ),
         freshness="fresh",
         plan_status="ended" if "已结束" in text else "active",
         plan_budget=0.0,

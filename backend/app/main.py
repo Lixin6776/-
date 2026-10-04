@@ -84,18 +84,25 @@ async def lifespan(application: FastAPI):
             try:
                 profile = StrategyProfileService(session).get_active()
             except LookupError:
-                return MonitorProfile(
-                    version=0,
-                    business_direction="未配置",
-                    primary_objective="请先创建投放策略",
-                    hard_constraints={},
-                )
-            return MonitorProfile(
-                version=profile.version,
-                business_direction=profile.business_direction,
-                primary_objective=profile.primary_objective,
-                hard_constraints=profile.hard_constraints,
-            )
+                version = 0
+                business_direction = "未配置"
+                primary_objective = "请先创建投放策略"
+                hard_constraints: dict = {}
+            else:
+                version = profile.version
+                business_direction = profile.business_direction
+                primary_objective = profile.primary_objective
+                hard_constraints = dict(profile.hard_constraints)
+
+        plan = getattr(application.state, "latest_plan_snapshot", None)
+        if plan is not None and plan.roi_goal is not None:
+            hard_constraints = {**hard_constraints, "roi_target": plan.roi_goal}
+        return MonitorProfile(
+            version=version,
+            business_direction=business_direction,
+            primary_objective=primary_objective,
+            hard_constraints=hard_constraints,
+        )
 
     async def execution_provider_factory(action_name: str | None = None):
         async def close_noop():

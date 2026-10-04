@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from app.execution.cdp.fixture_adapter import MetricSnapshot
 from app.services.analytics import AnalyticsService
@@ -50,3 +51,33 @@ def test_live_review_store_deduplicates_same_date(tmp_path):
     assert first["id"] == "1"
     assert second["id"] == "1"
     assert len(store.list_reviews()) == 1
+
+
+def test_build_live_review_uses_live_start_date_and_reports_unknown_target():
+    snapshot = MetricSnapshot(
+        captured_at=datetime(2026, 10, 4, 12, 0, tzinfo=UTC),
+        live_started_at=datetime(2026, 9, 30, 6, 0, 51, tzinfo=ZoneInfo("Asia/Shanghai")),
+        freshness="fresh",
+        plan_status="ended",
+        plan_budget=9999999,
+        spend=287165.42,
+        gmv=517076.75,
+        orders=3515,
+        views=83507,
+        online_viewers=0,
+        roi=1.8,
+        gpm=2872.77,
+    )
+    metrics = AnalyticsService().compute(snapshot)
+    profile = MonitorProfile(
+        version=0,
+        business_direction="未配置",
+        primary_objective="请先创建投放策略",
+        hard_constraints={},
+    )
+
+    review = build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+
+    assert review["date"] == "2026-09-30"
+    assert "- ROI 目标：--" in review["report_markdown"]
+    assert "是否达标：未配置" in review["report_markdown"]
