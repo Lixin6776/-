@@ -37,6 +37,27 @@ vi.mock("../lib/api", () => ({
   }),
   connectNotifications: vi.fn().mockReturnValue(() => undefined),
   getLearningSuggestions: vi.fn().mockResolvedValue([]),
+  getFeishuStatus: vi.fn().mockResolvedValue({
+    configured: false,
+    enabled: false,
+    webhook_masked: "",
+    secret_configured: false,
+    auto_send_live_review: true,
+    auto_send_material_analysis: true,
+    last_sent_at: "",
+    last_error: ""
+  }),
+  saveFeishuConfig: vi.fn().mockResolvedValue({
+    configured: true,
+    enabled: true,
+    webhook_masked: "https://open.feishu.cn/.../hook/****",
+    secret_configured: false,
+    auto_send_live_review: true,
+    auto_send_material_analysis: true,
+    last_sent_at: "",
+    last_error: ""
+  }),
+  testFeishuConnection: vi.fn().mockResolvedValue({ ok: true, message: "飞书测试卡片已发送" }),
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
   connectMonitor: vi.fn().mockReturnValue(() => undefined),
@@ -108,4 +129,12 @@ test("left navigation opens a floating tool window", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "大模型" }));
   expect(await screen.findByRole("dialog", { name: "大模型" })).toBeInTheDocument();
   expect(await screen.findByText("DeepSeek 大模型")).toBeInTheDocument();
+});
+
+
+test("left navigation opens feishu connection window", async () => {
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "飞书" }));
+  expect(await screen.findByRole("dialog", { name: "飞书" })).toBeInTheDocument();
+  expect(await screen.findByText("尚未配置飞书 Webhook")).toBeInTheDocument();
 });

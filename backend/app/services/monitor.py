@@ -46,6 +46,7 @@ class _MonitorCore:
         self,
         profile_version: int = 1,
         profile_provider: Callable[[], MonitorProfile] | None = None,
+        review_notifier: Callable[[dict], None] | None = None,
     ) -> None:
         self._default_profile = MonitorProfile(
             version=profile_version,
@@ -59,6 +60,7 @@ class _MonitorCore:
         self._previous_captured_at: datetime | None = None
         self._previous_plan_status: str | None = None
         self.review_store = None
+        self.review_notifier = review_notifier
         self._latest_event: MonitorEvent | None = None
 
     def latest_event(self) -> MonitorEvent | None:
@@ -92,6 +94,8 @@ class _MonitorCore:
             review = self.review_store.add_if_absent(
                 build_live_review(snapshot, metrics, profile, snapshot.captured_at)
             )
+            if self.review_notifier is not None:
+                self.review_notifier(review)
         event = MonitorEvent(
             captured_at=snapshot.captured_at,
             freshness=snapshot.freshness,
@@ -124,10 +128,12 @@ class MonitorService(_MonitorCore):
         interval_seconds: int = 300,
         profile_provider: Callable[[], MonitorProfile] | None = None,
         review_store=None,
+        review_notifier: Callable[[dict], None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
+            review_notifier=review_notifier,
         )
         self.fixture_path = fixture_path
         self.review_store = review_store
@@ -146,10 +152,12 @@ class AsyncMonitorService(_MonitorCore):
         interval_seconds: int = 300,
         profile_provider: Callable[[], MonitorProfile] | None = None,
         review_store=None,
+        review_notifier: Callable[[dict], None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
+            review_notifier=review_notifier,
         )
         self.snapshot_provider = snapshot_provider
         self.review_store = review_store

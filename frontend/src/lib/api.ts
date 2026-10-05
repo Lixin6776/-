@@ -178,3 +178,34 @@ export function connectNotifications(onEvent: (event: unknown) => void) {
   source.addEventListener("notification", (event) => onEvent(JSON.parse(event.data)));
   return () => source.close();
 }
+
+
+export async function getFeishuStatus() {
+  const response = await fetch(`${API_BASE}/api/feishu/status`);
+  if (!response.ok) throw new Error("Failed to load Feishu status");
+  return response.json();
+}
+
+export async function saveFeishuConfig(config: {
+  webhook_url: string;
+  secret: string;
+  enabled: boolean;
+  auto_send_live_review: boolean;
+  auto_send_material_analysis: boolean;
+}) {
+  const response = await fetch(`${API_BASE}/api/feishu/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) throw new Error("Failed to save Feishu config");
+  return response.json();
+}
+
+export async function testFeishuConnection() {
+  const response = await fetch(`${API_BASE}/api/feishu/test`, {
+    method: "POST"
+  });
+  if (!response.ok) throw new Error("Feishu connection test failed");
+  return response.json();
+}

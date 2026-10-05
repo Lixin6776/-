@@ -5,7 +5,7 @@ import { ApiConnectionPanel } from "./components/ApiConnectionPanel";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { LiveReviewList, type LiveReview } from "./components/LiveReviewList";
 import { MaterialAnalysisList, type MaterialAnalysis } from "./components/MaterialAnalysisList";
-import { StrategySuggestionCard } from "./components/StrategySuggestionCard";
+import { FeishuConnectionPanel } from "./components/FeishuConnectionPanel";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { ExecutionTimeline } from "./components/ExecutionTimeline";
@@ -22,11 +22,9 @@ import {
   getExecutionJobs,
   getApiConnectionStatus,
   getLiveReviews,
-  getLearningSuggestions,
   getMaterialAnalyses,
   generateMaterialAnalysis,
   connectNotifications,
-  decideLearningSuggestion,
   previewAction,
   sendChat
 } from "./lib/api";
@@ -47,7 +45,7 @@ type ExecutionJob = {
   created_at: string;
 };
 
-type ToolWindow = "strategy" | "decisions" | "jobs" | "llm" | "api" | "learning" | "evaluation" | "suggestions" | "advanced";
+type ToolWindow = "strategy" | "decisions" | "jobs" | "llm" | "api" | "learning" | "evaluation" | "feishu" | "advanced";
 
 const tools: Array<{ id: ToolWindow; label: string }> = [
   { id: "strategy", label: "投放策略" },
@@ -57,7 +55,7 @@ const tools: Array<{ id: ToolWindow; label: string }> = [
   { id: "api", label: "API 连接" },
   { id: "learning", label: "直播复盘" },
   { id: "evaluation", label: "素材分析" },
-  { id: "suggestions", label: "策略建议" },
+  { id: "feishu", label: "飞书" },
   { id: "advanced", label: "高级操作" }
 ];
 
@@ -67,7 +65,6 @@ export default function App() {
   const [jobs, setJobs] = useState<ExecutionJob[]>([]);
   const [reviews, setReviews] = useState<LiveReview[]>([]);
   const [materialAnalyses, setMaterialAnalyses] = useState<MaterialAnalysis[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [apiStatus, setApiStatus] = useState({ configured: false, provider_preference: "cdp" as "api" | "cdp" });
   const [monitorEvent, setMonitorEvent] = useState<LiveMonitorEvent | null>(null);
   const [incomingMessage, setIncomingMessage] = useState<{ id: string; content: string } | null>(null);
@@ -85,7 +82,6 @@ export default function App() {
         if (value[0]) setIncomingMessage({ id: value[0].id, content: value[0].report_markdown });
       })
       .catch(() => undefined);
-    getLearningSuggestions().then(setSuggestions).catch(() => undefined);
     getApiConnectionStatus().then(setApiStatus).catch(() => undefined);
     const disconnectMonitor = connectMonitor((event) => setMonitorEvent(event as LiveMonitorEvent));
     const disconnectNotifications = connectNotifications((event) => {
@@ -137,13 +133,6 @@ export default function App() {
     });
     setSelectedPreview(preview as ActionPreview);
     setActiveWindow(null);
-  }
-
-  async function decideSuggestion(id: string, decision: "accept" | "reject") {
-    const updated = await decideLearningSuggestion(id, decision);
-    setSuggestions((current) =>
-      current.map((item) => (item.id === id ? updated : item))
-    );
   }
 
   async function confirmAction(preview: ActionPreview) {
@@ -200,22 +189,7 @@ export default function App() {
         />
       );
     }
-    if (activeWindow === "suggestions") {
-      return suggestions.length ? (
-        <div className="window-stack">
-          {suggestions.map((item) => (
-            <StrategySuggestionCard
-              key={item.id}
-              suggestion={item}
-              onAccept={(id) => decideSuggestion(id, "accept")}
-              onReject={(id) => decideSuggestion(id, "reject")}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="empty-state">暂无策略建议。</p>
-      );
-    }
+    if (activeWindow === "feishu") return <FeishuConnectionPanel />;
     if (activeWindow === "advanced") {
       return (
         <ActionParameterForm
@@ -243,9 +217,6 @@ export default function App() {
               onClick={() => setActiveWindow(item.id)}
             >
               <span>{item.label}</span>
-              {item.id === "suggestions" && suggestions.length ? (
-                <em>{suggestions.length}</em>
-              ) : null}
             </button>
           ))}
         </nav>
