@@ -120,6 +120,9 @@ def test_feishu_qr_login_starts_device_flow(tmp_path):
     assert state["verification_url"].startswith("https://accounts.feishu.cn/")
     assert state["qr_data_url"].startswith("data:image/png;base64,")
     assert any(call[:2] == ["auth", "qrcode"] for call in runner.calls)
+    auth_call = next(call for call in runner.calls if call[:2] == ["auth", "login"])
+    assert "--scope" in auth_call
+    assert "im:message.send_as_user" in auth_call[auth_call.index("--scope") + 1]
 
 
 def test_feishu_qr_login_completion_creates_group(tmp_path):
@@ -175,3 +178,28 @@ def test_feishu_notifier_sends_qr_card_via_lark_cli(tmp_path):
     ) is True
     assert runner.calls[0][:2] == ["im", "+messages-send"]
     assert "--chat-id" in runner.calls[0]
+
+
+def test_feishu_qr_login_reuses_existing_group(tmp_path):
+    from app.services.feishu import FeishuQrAuthService
+
+    store = FeishuConfigStore(tmp_path / "feishu.json")
+    store.save(
+        FeishuConfig(
+            connection_mode="qr",
+            chat_id="oc_existing",
+            chat_name="千川 AI 投放助手",
+            enabled=True,
+        )
+    )
+    runner = FakeLarkRunner([])
+    service = FeishuQrAuthService(store, runner=runner, qr_dir=tmp_path)
+
+    state = service.complete_login(
+        "device-123",
+        auth_result={"ok": True, "data": {"open_id": "ou_user", "name": "李鑫"}},
+    )
+
+    assert state["status"] == "connected"
+    assert state["chat_id"] == "oc_existing"
+    assert not any(call[:2] == ["im", "+chat-create"] for call in runner.calls)

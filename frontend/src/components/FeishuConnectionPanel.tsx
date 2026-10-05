@@ -207,6 +207,9 @@ export function FeishuConnectionPanel({
             <button className="button-primary" type="submit" disabled={busy}>
               保存配置
             </button>
+            <button className="button-outline" type="button" onClick={handleStart} disabled={busy}>
+              重新扫码授权
+            </button>
             <button className="button-outline" type="button" onClick={handleTest} disabled={busy}>
               发送测试卡片
             </button>

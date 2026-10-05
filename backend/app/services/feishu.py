@@ -273,7 +273,7 @@ class FeishuQrAuthService:
         }
 
     def start_login(self, start_polling: bool = True) -> dict:
-        result = self.runner.run_json(["auth", "login", "--no-wait", "--json", "--domain", "im"])
+        result = self.runner.run_json(["auth", "login", "--no-wait", "--json", "--scope", "im:message.send_as_user im:chat:create_by_user im:chat:readonly"])
         if result.get("ok") is False:
             self._state.update({"status": "failed", "message": str(result.get("error") or result)})
             return dict(self._state)
@@ -335,40 +335,48 @@ class FeishuQrAuthService:
         if result.get("ok") is False:
             self._state.update({"status": "failed", "message": str(result.get("error") or result)})
             return dict(self._state)
-        group_result = self.runner.run_json(
-            [
-                "im",
-                "+chat-create",
-                "--name",
-                FEISHU_GROUP_NAME,
-                "--description",
-                FEISHU_GROUP_DESCRIPTION,
-                "--as",
-                "user",
-                "--format",
-                "json",
-            ],
-            timeout=120,
-        )
-        if group_result.get("ok") is False:
-            self._state.update(
-                {
-                    "status": "failed",
-                    "message": str(group_result.get("error") or "创建飞书助手群失败。"),
-                }
+
+        existing = self.store.load()
+        if existing.chat_id:
+            chat_id = existing.chat_id
+            chat_name = existing.chat_name or FEISHU_GROUP_NAME
+            chat_share_link = existing.chat_share_link
+        else:
+            group_result = self.runner.run_json(
+                [
+                    "im",
+                    "+chat-create",
+                    "--name",
+                    FEISHU_GROUP_NAME,
+                    "--description",
+                    FEISHU_GROUP_DESCRIPTION,
+                    "--as",
+                    "user",
+                    "--format",
+                    "json",
+                ],
+                timeout=120,
             )
-            return dict(self._state)
-        data_raw = group_result.get("data")
-        data: dict = data_raw if isinstance(data_raw, dict) else group_result
-        chat_id = str(data.get("chat_id") or data.get("chatId") or "")
-        chat_name = str(data.get("name") or FEISHU_GROUP_NAME)
-        chat_share_link = str(data.get("share_link") or data.get("shareLink") or "")
+            if group_result.get("ok") is False:
+                self._state.update(
+                    {
+                        "status": "failed",
+                        "message": str(group_result.get("error") or "创建飞书助手群失败。"),
+                    }
+                )
+                return dict(self._state)
+            data_raw = group_result.get("data")
+            data: dict = data_raw if isinstance(data_raw, dict) else group_result
+            chat_id = str(data.get("chat_id") or data.get("chatId") or "")
+            chat_name = str(data.get("name") or FEISHU_GROUP_NAME)
+            chat_share_link = str(data.get("share_link") or data.get("shareLink") or "")
         if not chat_id:
             self._state.update({"status": "failed", "message": "飞书没有返回群 ID。"})
             return dict(self._state)
+
         identity_raw = result.get("data")
         identity: dict = identity_raw if isinstance(identity_raw, dict) else result
-        config = self.store.load().model_copy(
+        config = existing.model_copy(
             update={
                 "connection_mode": "qr",
                 "enabled": True,
@@ -386,7 +394,7 @@ class FeishuQrAuthService:
         self._state.update(
             {
                 "status": "connected",
-                "message": "飞书助手群已创建并连接。",
+                "message": "飞书助手群已创建并连接。" if not existing.chat_id else "飞书发送权限已更新。",
                 "chat_id": chat_id,
                 "chat_name": chat_name,
                 "chat_share_link": chat_share_link,
