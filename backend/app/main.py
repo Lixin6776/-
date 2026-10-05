@@ -31,7 +31,7 @@ from app.execution.cdp.live_snapshot import LiveBoardSnapshotReader, unavailable
 from app.execution.cdp.material_reader import CdpMaterialReader
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.services.api_client import OceanEngineApiClient
-from app.services.feishu import FeishuConfigStore, FeishuNotifier
+from app.services.feishu import FeishuConfigStore, FeishuNotifier, FeishuQrAuthService
 from app.services.live_review import LiveReviewStore
 from app.services.llm_config import load_llm_config
 from app.services.material_analysis import (
@@ -83,6 +83,7 @@ async def lifespan(application: FastAPI):
     material_reader = CdpMaterialReader(settings.cdp_endpoint)
     feishu_config_store = FeishuConfigStore()
     feishu_notifier = FeishuNotifier(feishu_config_store)
+    feishu_auth_service = FeishuQrAuthService(feishu_config_store)
     notification_hub = NotificationHub()
     load_llm_config(settings)
     Base.metadata.create_all(bind=engine)
@@ -175,6 +176,7 @@ async def lifespan(application: FastAPI):
     application.state.notification_hub = notification_hub
     application.state.feishu_config_store = feishu_config_store
     application.state.feishu_notifier = feishu_notifier
+    application.state.feishu_auth_service = feishu_auth_service
 
     application.state.material_analysis_runner = partial(run_material_analysis_job, application)
 

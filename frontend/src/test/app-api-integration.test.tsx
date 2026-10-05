@@ -58,6 +58,29 @@ vi.mock("../lib/api", () => ({
     last_error: ""
   }),
   testFeishuConnection: vi.fn().mockResolvedValue({ ok: true, message: "飞书测试卡片已发送" }),
+  startFeishuLogin: vi.fn().mockResolvedValue({
+    status: "pending",
+    message: "请使用飞书扫码并完成授权。",
+    verification_url: "https://accounts.feishu.cn/oauth/v1/device/verify",
+    qr_data_url: "data:image/png;base64,ZmFrZQ=="
+  }),
+  getFeishuLoginStatus: vi.fn().mockResolvedValue({
+    configured: false,
+    enabled: false,
+    connection_mode: "webhook",
+    webhook_masked: "",
+    secret_configured: false,
+    chat_id: "",
+    chat_name: "",
+    chat_share_link: "",
+    auth_status: "idle",
+    auth_message: "",
+    auth_user_name: "",
+    auto_send_live_review: true,
+    auto_send_material_analysis: true,
+    last_sent_at: "",
+    last_error: ""
+  }),
   decideLearningSuggestion: vi.fn().mockResolvedValue({ status: "accepted" }),
   createActionConfirmation: vi.fn().mockResolvedValue({ id: "c1" }),  executeActionConfirmation: vi.fn().mockResolvedValue({ id: "j1", status: "pending" }),
   connectMonitor: vi.fn().mockReturnValue(() => undefined),
@@ -136,5 +159,5 @@ test("left navigation opens feishu connection window", async () => {
   render(<App />);
   fireEvent.click(await screen.findByRole("button", { name: "飞书" }));
   expect(await screen.findByRole("dialog", { name: "飞书" })).toBeInTheDocument();
-  expect(await screen.findByText("尚未配置飞书 Webhook")).toBeInTheDocument();
+  expect(await screen.findByText("尚未连接飞书")).toBeInTheDocument();
 });

@@ -209,3 +209,18 @@ export async function testFeishuConnection() {
   if (!response.ok) throw new Error("Feishu connection test failed");
   return response.json();
 }
+
+
+export async function startFeishuLogin() {
+  const response = await fetch(`${API_BASE}/api/feishu/login/start`, {
+    method: "POST"
+  });
+  if (!response.ok) throw new Error("Failed to start Feishu login");
+  return response.json();
+}
+
+export async function getFeishuLoginStatus() {
+  const response = await fetch(`${API_BASE}/api/feishu/login/status`);
+  if (!response.ok) throw new Error("Failed to load Feishu login status");
+  return response.json();
+}
