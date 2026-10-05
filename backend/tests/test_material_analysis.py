@@ -144,7 +144,7 @@ def test_material_analysis_contains_new_material_direction():
 
     assert report["date"] == "2026-10-01"
     assert "素材分析报告" in report["report_markdown"]
-    assert "新素材制作方向" in report["report_markdown"]
+    assert "素材产出方向" in report["report_markdown"]
     assert "痛点、效果演示、真实反馈" in report["report_markdown"]
 
 
@@ -182,11 +182,12 @@ def test_material_analysis_uses_per_material_metrics():
     )
 
     markdown = report["report_markdown"]
-    assert "### 二、逐条素材表现" in markdown
+    assert "### 一、每日素材消耗概况" in markdown
+    assert "### 二、新素材情况" in markdown
+    assert "### 三、跑量素材较上一日变化" in markdown
+    assert "### 四、素材产出方向" in markdown
     assert "高转化痛点开场" in markdown
     assert "泛品牌口播" in markdown
-    assert "高消耗达标素材" in markdown
-    assert "低效素材" in markdown
     assert "长期策略约束" in markdown
     assert report["metrics"]["material_count"] == 2
 
@@ -283,3 +284,98 @@ def test_material_analysis_store_replaces_placeholder_with_material_data(tmp_pat
 
     assert replacement["id"] == "detailed"
     assert store.list_analyses()[0]["id"] == "detailed"
+
+
+def test_material_analysis_reports_daily_new_material_and_change_summary():
+    current = [
+        MaterialMetric(
+            material_id="new",
+            name="新素材-痛点开场",
+            spend=1200,
+            roi=2.8,
+            gmv=3360,
+            orders=18,
+            created_at="2026-10-02 09:00:00",
+        ),
+        MaterialMetric(
+            material_id="scale",
+            name="跑量素材-场景演示",
+            spend=2500,
+            roi=2.2,
+            gmv=5500,
+            orders=30,
+            created_at="2026-09-20 09:00:00",
+        ),
+        MaterialMetric(
+            material_id="decline",
+            name="下降素材-泛口播",
+            spend=300,
+            roi=0.9,
+            gmv=270,
+            orders=2,
+            created_at="2026-09-10 09:00:00",
+        ),
+    ]
+    previous = [
+        MaterialMetric(material_id="scale", name="跑量素材-场景演示", spend=1500),
+        MaterialMetric(material_id="decline", name="下降素材-泛口播", spend=1000),
+        MaterialMetric(material_id="stopped", name="停止素材-旧视频", spend=800),
+    ]
+
+    report = build_material_analysis(
+        PlanSnapshot(id="plan-1", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        _event(),
+        report_date=date(2026, 10, 2),
+        materials=current,
+        previous_materials=previous,
+    )
+
+    markdown = report["report_markdown"]
+    assert "每日素材消耗概况" in markdown
+    assert "新素材上新：1 条" in markdown
+    assert "新素材消耗：¥1,200.00" in markdown
+    assert "跑量素材较上一日变化" in markdown
+    assert "增长素材" in markdown
+    assert "下降素材" in markdown
+    assert "停止消耗素材" in markdown
+    assert "跑量素材-场景演示" in markdown
+    assert "停止素材-旧视频" in markdown
+    assert report["metrics"]["new_material_count"] == 1
+    assert report["metrics"]["new_material_spend"] == 1200
+
+
+@pytest.mark.asyncio
+async def test_generate_material_analysis_reads_previous_day(tmp_path):
+
+    from app.services.material_analysis import generate_and_publish_material_analysis
+
+    class FakeMonitor:
+        def latest_event(self):
+            return _event()
+
+    class FakeHub:
+        async def publish(self, _payload):
+            return None
+
+    class FakeReader:
+        def __init__(self):
+            self.dates = []
+
+        async def read(self, analysis_date):
+            self.dates.append(analysis_date)
+            if analysis_date == date(2026, 10, 2):
+                return [MaterialMetric(material_id="new", name="新素材", spend=100, created_at="2026-10-02 08:00:00")]
+            return [MaterialMetric(material_id="old", name="旧素材", spend=200)]
+
+    reader = FakeReader()
+    report = await generate_and_publish_material_analysis(
+        FakeMonitor(),
+        lambda: PlanSnapshot(id="plan-1", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        MaterialAnalysisStore(tmp_path / "materials.json"),
+        FakeHub(),
+        material_reader=reader,
+        analysis_date=date(2026, 10, 2),
+    )
+
+    assert reader.dates == [date(2026, 10, 2), date(2026, 10, 1)]
+    assert "较上一日" in report["report_markdown"]
