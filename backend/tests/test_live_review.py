@@ -23,9 +23,13 @@ def _snapshot() -> MetricSnapshot:
     )
 
 
-def test_build_live_review_contains_review_and_tomorrow_plan():
-    snapshot = _snapshot()
+def _review_for(profile, snapshot=None):
+    snapshot = snapshot or _snapshot()
     metrics = AnalyticsService().compute(snapshot)
+    return build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+
+
+def test_build_live_review_contains_review_and_next_session_plan():
     profile = MonitorProfile(
         version=1,
         business_direction="ROI目标 2.5",
@@ -33,14 +37,24 @@ def test_build_live_review_contains_review_and_tomorrow_plan():
         hard_constraints={"roi_target": 2.5},
     )
 
-    review = build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+    review = _review_for(profile)
+    report = review["report_markdown"]
 
     assert review["date"] == "2026-10-01"
-    assert "直播复盘" in review["report_markdown"]
-    assert "综合营销 ROI：1.80" in review["report_markdown"]
-    assert "未达标" in review["report_markdown"]
-    assert "明日投放策略" in review["report_markdown"]
-    assert "必须先经过人工确认" in review["report_markdown"]
+    assert "直播复盘" in report
+    # 结论层：说清达标与否、缺口多少
+    assert "综合营销 ROI：1.80（目标 2.50，**未达标**）" in report
+    # 复盘结构：数据拆解 / 流量结构 / 问题归因 / 落地动作 / 下场准备
+    assert "### 二、数据拆解" in report
+    assert "### 三、直播间流量结构" in report
+    assert "### 四、具体问题（现象 → 归因）" in report
+    assert "### 五、具体解决方案（落到操作）" in report
+    assert "### 六、下场开播前准备" in report
+    # 问题必须落到可执行动作，而不是只说「有问题」
+    assert "**现象**" in report and "**归因（按可能性排序）**" in report
+    assert "本场无需要调整的动作" not in report
+    assert "所有动作都需你确认后执行" in report
+    assert "必须人工确认后再执行" in report
 
 
 def test_live_review_store_deduplicates_same_date(tmp_path):
@@ -77,7 +91,10 @@ def test_build_live_review_uses_live_start_date_and_reports_unknown_target():
     )
 
     review = build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+    report = review["report_markdown"]
 
     assert review["date"] == "2026-09-30"
-    assert "- ROI 目标：--" in review["report_markdown"]
-    assert "是否达标：未配置" in review["report_markdown"]
+    # 目标未配置时要如实说「未配置」，不能编一个目标出来算缺口
+    assert "综合营销 ROI：1.80（目标 --，**未配置**）" in report
+    assert "未配置目标 ROI，**无法判断是否达标**" in report
+    assert "目标 2.00" not in report

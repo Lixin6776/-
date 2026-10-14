@@ -1,3 +1,9 @@
+import os
+
+# 必须在 import app.main 之前设置：不然生命周期会真的去跑
+# 每日汇报 / 复盘补跑（会调飞书 lark-cli 和 CDP），把测试套件挂住。
+os.environ.setdefault("QCA_ENABLE_BACKGROUND_JOBS", "false")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

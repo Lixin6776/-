@@ -64,6 +64,12 @@ def test_feishu_notifier_sends_card_once(tmp_path):
             store,
             sent_path=tmp_path / "feishu_sent.json",
             client=client,
+            # 别让测试真的去调 lark-cli（会等网络/登录，实测能把整个测试套件挂住）
+            lark_runner=FakeLarkRunner(
+                [{"ok": True, "data": {"document": {"url": "https://example.feishu.cn/docx/x"}}}]
+            ),
+            doc_urls_path=tmp_path / "doc_urls.json",
+            docs_dir=tmp_path / "docs",
         )
         review = {
             "id": "review-1",
@@ -170,14 +176,45 @@ def test_feishu_notifier_sends_qr_card_via_lark_cli(tmp_path):
             auto_send_live_review=True,
         )
     )
-    runner = FakeLarkRunner([{"ok": True, "data": {"message_id": "om_1"}}])
-    notifier = FeishuNotifier(store, sent_path=tmp_path / "sent.json", lark_runner=runner)
+    runner = FakeLarkRunner(
+        [
+            # 1) 先把复盘建成飞书文档
+            {
+                "ok": True,
+                "data": {"document": {"url": "https://example.feishu.cn/docx/abc123"}},
+            },
+            # 2) 再把卡片（带文档链接）发到群里
+            {"ok": True, "data": {"message_id": "om_1"}},
+        ]
+    )
+    notifier = FeishuNotifier(
+        store,
+        sent_path=tmp_path / "sent.json",
+        lark_runner=runner,
+        doc_urls_path=tmp_path / "doc_urls.json",
+        docs_dir=tmp_path / "docs",
+    )
 
     assert notifier.send_live_review(
         {"id": "review-qr", "report_markdown": "## 直播复盘｜2026-10-05\n\n- 是否达标：达标"}
     ) is True
-    assert runner.calls[0][:2] == ["im", "+messages-send"]
-    assert "--chat-id" in runner.calls[0]
+    # 复盘要先落成飞书文档，再把「文档链接 + 卡片」发出去
+    assert runner.calls[0][:2] == ["docs", "+create"]
+    assert runner.calls[1][:2] == ["im", "+messages-send"]
+    assert "--chat-id" in runner.calls[1]
+    # 文档链接要真的带进卡片里
+    assert "--content" in runner.calls[1]
+    card_payload = json.loads(runner.calls[1][runner.calls[1].index("--content") + 1])
+    assert "https://example.feishu.cn/docx/abc123" in json.dumps(
+        card_payload, ensure_ascii=False
+    )
+    # 同一个 key 再建一次：直接复用缓存，不再重复调 docs +create
+    calls_before = len(runner.calls)
+    assert (
+        notifier.create_report_doc("## 直播复盘｜2026-10-05", "t", "live_review:review-qr")
+        == "https://example.feishu.cn/docx/abc123"
+    )
+    assert len(runner.calls) == calls_before
 
 
 def test_feishu_qr_login_reuses_existing_group(tmp_path):
