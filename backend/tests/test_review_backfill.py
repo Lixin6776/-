@@ -5,6 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.services.review_backfill import (
+    _day_segments,
     build_catch_up_review,
     group_sessions,
     missing_sessions,
@@ -163,3 +164,78 @@ def test_catch_up_review_date_comes_from_session_not_last_record():
     review = build_catch_up_review(session, profile)
     assert review["date"] == "2026-10-09"
     assert "直播复盘｜2026-10-09" in review["report_markdown"]
+
+
+# --- 长连播（马拉松）按天出复盘 ---------------------------------------------
+
+
+def _marathon_logs():
+    """一场从 10-12 07:00 连播到 10-14 的直播（room_id 不变）。"""
+    started = "2026-10-12T07:00:00+08:00"
+    return [
+        _log("LONG", started, "2026-10-12T09:00:00+08:00", spend=10000, roi=2.0),
+        _log("LONG", started, "2026-10-13T15:00:00+08:00", spend=25000, roi=2.1),
+        _log("LONG", started, "2026-10-14T20:00:00+08:00", spend=40000, roi=2.2),
+    ]
+
+
+def test_day_segments_splits_marathon_by_beijing_day():
+    sessions = group_sessions(_marathon_logs())
+    assert len(sessions) == 1  # 一场连播，按 live_room_id 只是一场
+    segs = _day_segments(sessions[0])
+    assert [s["date"] for s in segs] == ["2026-10-12", "2026-10-13", "2026-10-14"]
+    # 每一段的 live_started_at 用当天第一条记录，段内日期才自洽
+    assert segs[1]["live_started_at"].startswith("2026-10-13")
+    assert segs[1]["segment_of"] == "room:LONG"
+
+
+def test_day_segments_does_not_split_short_overnight_session():
+    """普通跨午夜短场（23:30→02:30）不切，保持一场一份。"""
+    logs = [
+        _log("N", "2026-10-08T23:30:00+08:00", "2026-10-08T23:40:00+08:00"),
+        _log("N", "2026-10-08T23:30:00+08:00", "2026-10-09T02:30:00+08:00"),
+    ]
+    sessions = group_sessions(logs)
+    assert _day_segments(sessions[0]) == []
+
+
+def test_missing_sessions_adds_marathon_days_except_today():
+    """马拉松单场（唯一一场、还在播）也要能补出「已过完的整天」。"""
+    now = datetime(2026, 10, 14, 22, 0, tzinfo=BEIJING)
+    missing = missing_sessions(
+        _marathon_logs(), existing_dates={"2026-10-12"}, now=now
+    )
+    # 10-12 已有复盘、10-14 还没过完 → 只补 10-13
+    assert [m["date"] for m in missing] == ["2026-10-13"]
+    assert missing[0]["segment_of"] == "room:LONG"
+
+
+def test_missing_sessions_keeps_all_marathon_days_when_none_exist():
+    now = datetime(2026, 10, 14, 22, 0, tzinfo=BEIJING)
+    missing = missing_sessions(_marathon_logs(), existing_dates=set(), now=now)
+    assert [m["date"] for m in missing] == ["2026-10-12", "2026-10-13"]
+
+
+def test_build_catch_up_review_marks_day_segment():
+    from app.services.monitor import MonitorProfile
+
+    session = {
+        "key": "room:LONG#2026-10-13",
+        "room_name": "质润官方旗舰店",
+        "live_started_at": "2026-10-13T00:05:00+08:00",
+        "date": "2026-10-13",
+        "segment_of": "room:LONG",
+        "reports": [
+            _log("LONG", "2026-10-12T07:00:00+08:00", "2026-10-13T00:05:00+08:00", spend=5000, roi=2.0),
+            _log("LONG", "2026-10-12T07:00:00+08:00", "2026-10-13T23:00:00+08:00", spend=30000, roi=2.3),
+        ],
+    }
+    profile = MonitorProfile(
+        version=1, business_direction="测试", primary_objective="测试", hard_constraints={"roi_target": 2.5}
+    )
+    review = build_catch_up_review(session, profile)
+    assert review["date"] == "2026-10-13"
+    assert review["segment_of"] == "room:LONG"
+    assert review["segment_date"] == "2026-10-13"
+    assert "只覆盖 2026-10-13 这一天" in review["report_markdown"]
+    assert "直播复盘｜2026-10-13" in review["report_markdown"]
