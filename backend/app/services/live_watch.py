@@ -223,9 +223,18 @@ def deviation_pct(current: float | None, base: float | None) -> float | None:
     return (float(current) - float(base)) / float(base) * 100
 
 
-def baseline_problems(metrics, baselines: dict, history_len: int) -> list[str]:
-    """跟自己的历史比：偏离基线一定程度才算问题，依据自带。"""
+def baseline_problems(
+    metrics, baselines: dict, history_len: int
+) -> tuple[list[str], list[str]]:
+    """跟自己的历史比：偏离基线一定程度才算问题，依据自带。
+
+    返回 (问题列表, 样本不足没做判断的指标列表)。
+
+    第二条很关键：样本不足时以前是**静默跳过**的，用户分不清"没问题"和
+    "没基准可比"。新号/新户期必须显式说明——不能拿通用阈值冒充"你自己的水平"。
+    """
     problems: list[str] = []
+    skipped: list[str] = []
     cpm_now = _cpm(metrics)
     checks = [
         ("cpm", cpm_now, "high", 20, "流量成本（CPM）比自身基线高"),
@@ -239,6 +248,8 @@ def baseline_problems(metrics, baselines: dict, history_len: int) -> list[str]:
     for key, current, direction, threshold, label in checks:
         base_info = baselines.get(key)
         if not base_info:
+            if current is not None:
+                skipped.append(label)
             continue
         base = base_info["median"]
         dev = deviation_pct(current, base)
@@ -256,7 +267,7 @@ def baseline_problems(metrics, baselines: dict, history_len: int) -> list[str]:
                 f"近 {base_info['samples']} 次盯盘中位 {_fmt_metric(key, base)}"
                 f"（依据：比自身基线低 {abs(dev):.0f}% > 阈值 {threshold}%）"
             )
-    return problems
+    return problems, skipped
 
 
 def _fmt_metric(key: str, value) -> str:
@@ -888,8 +899,12 @@ def build_watch_report(
     )
     if trend:
         problems.append(trend)
+    skipped_baselines: list[str] = []
     if baselines:
-        problems = problems + baseline_problems(metrics, baselines, len(history))
+        baseline_issues, skipped_baselines = baseline_problems(
+            metrics, baselines, len(history)
+        )
+        problems = problems + baseline_issues
     # 注意：投放管理页的「基础 vs 整体」是【当日累计】口径，和直播大屏的
     # 【当前场次】口径不同，直接放进同一张报表会自相矛盾。这里不再渲染它，
     # 场次口径的基础/追投拆分统一由「投放结构拆分」区块输出（见下方）。
@@ -1246,7 +1261,16 @@ def build_watch_report(
 
     # 输出前自检
     issues = self_check(metrics, problems, split)
-    lines.append(render_self_check(issues, audit_notes))
+    note_list = list(audit_notes or [])
+    if skipped_baselines:
+        # 样本不足时以前是静默跳过的，用户分不清"没问题"和"没基准可比"
+        note_list.append(
+            "样本不足（本账户历史 < 5 次采样）："
+            + "、".join(skipped_baselines)
+            + " —— **本轮不做绝对水位判断**，只看相对变化和官方硬约束；"
+            "等历史样本够了会自动改用「本账户自身分位数」"
+        )
+    lines.append(render_self_check(issues, note_list))
     if issues and lines and lines[0].startswith("## 直播盯盘报表"):
         lines[0] = lines[0].replace("## 直播盯盘报表", "## ⚠️ 直播盯盘报表（自检未通过）")
 

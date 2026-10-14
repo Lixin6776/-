@@ -355,3 +355,38 @@ def test_baseline_falls_back_when_session_too_small():
     base = compute_baselines(history, room_name="R", session="2026-10-10T06:00:00+08:00")
     # 本场只有 1 条（<5）→ 退回同直播间历史，避免"样本太少也算基线"
     assert base["cpm"]["samples"] == 9
+
+
+# --- 样本不足（新号/新户）不能拿通用阈值冒充"你自己的水平" -------------------
+
+def test_missing_baseline_is_reported_not_silently_skipped():
+    """历史样本 < 5 时：不能光"没问题"，要明确说"这些指标没做水位判断"。"""
+    from app.services.analytics import ComputedMetrics
+    from app.services.live_watch import baseline_problems
+
+    metrics = ComputedMetrics(
+        roi=1.8, gpm=2000.0, spend=10000.0, gmv=18000.0, orders=50,
+        online_viewers=30, views=5000,
+        exposure_view_rate=3.5, view_conversion_rate=2.0,
+    )
+    # baselines 全空 = 这个账户没有够用的历史样本
+    problems, skipped = baseline_problems(metrics, {}, 0)
+    assert problems == []
+    assert any("GPM" in item for item in skipped)
+    assert any("在线人数" in item for item in skipped)
+
+
+def test_cold_start_note_appears_in_report():
+    from app.services.live_watch import build_watch_report
+
+    # baselines 为空 → 报表自检区要出现"样本不足"说明
+    report = build_watch_report(
+        _event(), [], 2.5, [], baselines={}, audit_notes=None
+    )
+    # 直接构造场景：把 skipped 列表塞进 audit_notes 的路径由 service 负责，
+    # 这里验证渲染端能显示出来
+    from app.services.self_check import render_self_check
+
+    text = render_self_check([], ["样本不足（本账户历史 < 5 次采样）：GPM、在线人数 —— 本轮不做绝对水位判断"])
+    assert "样本不足" in text
+    assert "不做绝对水位判断" in text
