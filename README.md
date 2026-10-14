@@ -31,8 +31,8 @@
 想手动装、或者安装脚本跑不通，看下面的手写步骤：
 
 ```powershell
-# 1) 拉代码（仓库名就是个短横线，建议指定目录名）
-git clone https://github.com/Lixin6776/-.git qianchuan-ai-assistant
+# 1) 拉代码
+git clone https://github.com/Lixin6776/qianchuanzidongtoufang.git qianchuan-ai-assistant
 cd qianchuan-ai-assistant
 
 # 2) 后端依赖
