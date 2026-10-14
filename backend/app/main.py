@@ -592,6 +592,7 @@ async def lifespan(application: FastAPI):
         plan_split_provider=CdpPlanSplitReader(settings.cdp_endpoint).read,
         snapshot_refresher=snapshot_refresher,
         session_state_provider=session_state_provider,
+        profile_provider=current_profile,
         session_end_handler=on_session_ended,
         alert_notifier=notify_watch_alert,
     )

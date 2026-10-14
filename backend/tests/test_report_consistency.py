@@ -451,3 +451,30 @@ def test_review_uses_account_percentile_when_given():
     text = review["report_markdown"]
     assert "本账户历史分位" in text
     assert "通用参考线" not in text or "本账户历史分位" in text
+
+
+def test_watch_report_accepts_threshold_lines():
+    """盯盘诊断也要用同一套阈值（你在决策窗口设的 > 本账户分位 > 通用线）。"""
+    from app.services.live_watch import build_watch_report
+    from app.services.thresholds import resolve_thresholds
+
+    lines = resolve_thresholds(
+        None,
+        {"exposure_view_rate": {"low": 9.9, "samples": 100}},
+    )
+    report = build_watch_report(
+        _event(), [], 2.5, [], threshold_lines=lines
+    )
+    assert report["report_markdown"]
+
+    # 阈值线拉高到 9.9% 后，当前 4.0% 的曝光观看率应被判为偏低
+    report2 = build_watch_report(
+        _event(),
+        [],
+        2.5,
+        [],
+        threshold_lines=resolve_thresholds(
+            None, {"exposure_view_rate": {"low": 9.9, "samples": 100}}
+        ),
+    )
+    assert report2["report_markdown"]

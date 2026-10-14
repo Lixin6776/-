@@ -886,6 +886,7 @@ def build_watch_report(
     stagnant_note: str = "",
     resume_note: str = "",
     audit_notes: list[str] | None = None,
+    threshold_lines: dict | None = None,
 ) -> dict:
     now = datetime.now(UTC)
     metrics = event.metrics
@@ -1135,6 +1136,7 @@ def build_watch_report(
         plan_splits=plan_splits,
         room_name=str(room_name) if room_name else None,
         spend_delta=event.spend_delta,
+        lines=threshold_lines,
     )
     if diag:
         for d in diag:
@@ -1328,6 +1330,7 @@ class LiveWatchService:
         plan_split_provider=None,
         snapshot_refresher=None,
         session_state_provider=None,
+        profile_provider=None,
         session_end_handler=None,
         alert_notifier=None,
         tick_timeout_seconds: float = 90.0,
@@ -1350,6 +1353,8 @@ class LiveWatchService:
         # 自检用：大屏头部经常不渲染，读不到「已结束」。这个回调去投放管理页
         # 确认「当前到底有没有在播的场次」，避免把已结束的收场快照当直播中。
         self.session_state_provider = session_state_provider
+        # 你在「决策」窗口设的阈值存在投放策略里，这里取它
+        self.profile_provider = profile_provider
         # 本场结束后：出复盘 → 停盯盘（下一场要手动开）
         self.session_end_handler = session_end_handler
         self.tick_timeout_seconds = tick_timeout_seconds
@@ -1788,6 +1793,17 @@ class LiveWatchService:
                     f"口径覆盖：素材口径仅覆盖大屏消耗的 {cover:.0f}%"
                     "（大屏含素材维度之外的消耗；占比类结论的分母是素材口径）"
                 )
+        # 判断阈值：你在「决策」窗口设的 > 本账户分位 > 通用线
+        from app.services.thresholds import resolve_thresholds as _resolve_thresholds
+
+        profile_for_lines = None
+        if self.profile_provider is not None:
+            try:
+                profile_for_lines = self.profile_provider()
+            except Exception:  # noqa: BLE001
+                profile_for_lines = None
+        resolved_lines = _resolve_thresholds(profile_for_lines, baselines)
+
         report = build_watch_report(
             event,
             history,
@@ -1802,6 +1818,7 @@ class LiveWatchService:
             stagnant_note=getattr(event, "reason", ""),
             resume_note=self._resume_note,
             audit_notes=audit_notes,
+            threshold_lines=resolved_lines,
         )
         self.store.append(report)
         self._last_run = datetime.now(UTC)

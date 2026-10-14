@@ -50,6 +50,7 @@ def diagnose(
     plan_splits: list[dict] | None = None,
     room_name: str | None = None,
     spend_delta: float | None = None,
+    lines: dict | None = None,
 ) -> list[Diagnosis]:
     """输出诊断结论列表。"""
     base = baselines or {}
@@ -248,15 +249,21 @@ def diagnose(
         assist = float(spend_split.get("assist_spend") or 0)
         if basic + assist > 0:
             ratio = assist / (basic + assist) * 100
-            if ratio > 50:
+            # 判断线：你在「决策」窗口设的 → 本账户分位 → 通用（和复盘同一套）
+            from app.services.thresholds import describe as _describe
+            from app.services.thresholds import value_of as _value_of
+
+            assist_line = _value_of(lines, "assist_share", 50.0)
+            if ratio > assist_line:
                 out.append(Diagnosis(
                     key="调控结构",
                     conclusion=(
-                        f"追投/调控占素材口径消耗 {ratio:.1f}%，结构偏重"
-                        "（官方建议：控成本追投占账户总消耗约 25%）"
+                        f"追投/调控占素材口径消耗 {ratio:.1f}%，超过你的判断线 "
+                        f"{assist_line:.0f}%（官方建议约 25%）"
                     ),
                     evidence=[
-                        f"追投/调控 ¥{assist:,.2f}（{ratio:.1f}%，分母=素材口径消耗）",
+                        f"追投/调控 ¥{assist:,.2f}（{ratio:.1f}% > "
+                        f"{_describe((lines or {}).get('assist_share'))}）",
                         f"基础计划 ¥{basic:,.2f}（{100 - ratio:.1f}%）",
                     ],
                     reasoning="官方明确：调控量级太大会和主计划抢量、拉低账户整体 ROI，"
