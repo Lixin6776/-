@@ -14,7 +14,16 @@ class Settings(BaseSettings):
     monitor_source: str = "cdp"
     monitor_interval_seconds: int = 300
     live_board_page_marker: str = "board-next"
+    # 只读取指定的直播间（留空 = 不限制，按页面顺序取第一个大屏）
+    live_board_room_name: str = ""
+    live_board_room_id: str = ""
+    # 巨量千川账户 ID（aavid）。从 backend/.env 读（该文件已被 gitignore），
+    # 不写进代码——避免把账号标识推到 GitHub。
+    aavid: str = ""
     read_only_mode: bool = False
+    # 后台任务（盯盘循环、每日汇报、开机补跑）总开关。
+    # 跑测试时必须关掉：那些补跑会真去调飞书(lark-cli)和 CDP，线程卡住会把测试拖死。
+    enable_background_jobs: bool = True
     cdp_endpoint: str = "http://127.0.0.1:9222"
     selector_config_path: str = ".local/selectors/qianchuan.json"
     api_base_url: str = "https://api.oceanengine.com"

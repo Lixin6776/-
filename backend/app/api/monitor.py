@@ -12,6 +12,7 @@ async def monitor_events(request: Request):
     service = request.app.state.monitor_service
 
     async def stream():
+        yield {"comment": "connected"}
         while True:
             event = service.tick()
             if isawaitable(event):

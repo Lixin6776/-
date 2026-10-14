@@ -16,6 +16,8 @@ class ComputedMetrics(BaseModel):
     product_clicks: int | None = None
     view_conversion_rate: float | None = None
     exposure_view_rate: float | None = None
+    room_name: str | None = None
+    live_room_id: str | None = None
 
 
 class AnalyticsService:
@@ -43,4 +45,6 @@ class AnalyticsService:
             product_clicks=snapshot.product_clicks,
             view_conversion_rate=snapshot.view_conversion_rate,
             exposure_view_rate=snapshot.exposure_view_rate,
+            room_name=snapshot.room_name,
+            live_room_id=snapshot.live_room_id,
         )

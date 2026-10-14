@@ -31,6 +31,7 @@ class MonitorEvent(BaseModel):
     spend_delta: float | None = None
     minutes_since_previous: float | None = None
     live_ended: bool = False
+    live_started_at: datetime | None = None
     review: dict | None = None
 
 
@@ -47,6 +48,8 @@ class _MonitorCore:
         profile_version: int = 1,
         profile_provider: Callable[[], MonitorProfile] | None = None,
         review_notifier: Callable[[dict], None] | None = None,
+        avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
+        roi_target_provider: Callable[[], float | None] | None = None,
     ) -> None:
         self._default_profile = MonitorProfile(
             version=profile_version,
@@ -61,6 +64,10 @@ class _MonitorCore:
         self._previous_plan_status: str | None = None
         self.review_store = None
         self.review_notifier = review_notifier
+        self.avg_online_provider = avg_online_provider
+        # 复盘判「是否达标」要用计划里的实际 ROI 目标（和盯盘同一个来源），
+        # 不能用策略里写死的值，否则同一场会出现两个目标。
+        self.roi_target_provider = roi_target_provider
         self._latest_event: MonitorEvent | None = None
 
     def latest_event(self) -> MonitorEvent | None:
@@ -91,8 +98,29 @@ class _MonitorCore:
         if live_ended and self.review_store is not None:
             from app.services.live_review import build_live_review
 
+            avg_online = None
+            samples = 0
+            if self.avg_online_provider is not None:
+                try:
+                    avg_online, samples = self.avg_online_provider()
+                except Exception:  # noqa: BLE001
+                    avg_online, samples = None, 0
+            plan_target = None
+            if self.roi_target_provider is not None:
+                try:
+                    plan_target = self.roi_target_provider()
+                except Exception:  # noqa: BLE001
+                    plan_target = None
             review = self.review_store.add_if_absent(
-                build_live_review(snapshot, metrics, profile, snapshot.captured_at)
+                build_live_review(
+                    snapshot,
+                    metrics,
+                    profile,
+                    snapshot.captured_at,
+                    avg_online=avg_online,
+                    online_samples=samples,
+                    roi_target=plan_target,
+                )
             )
             if self.review_notifier is not None:
                 self.review_notifier(review)
@@ -113,6 +141,7 @@ class _MonitorCore:
             spend_delta=spend_delta,
             minutes_since_previous=minutes_since_previous,
             live_ended=live_ended,
+            live_started_at=snapshot.live_started_at,
             review=review,
         )
         self._previous_plan_status = snapshot.plan_status
@@ -129,11 +158,14 @@ class MonitorService(_MonitorCore):
         profile_provider: Callable[[], MonitorProfile] | None = None,
         review_store=None,
         review_notifier: Callable[[dict], None] | None = None,
+        avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
+        roi_target_provider: Callable[[], float | None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
             review_notifier=review_notifier,
+            avg_online_provider=avg_online_provider,
         )
         self.fixture_path = fixture_path
         self.review_store = review_store
@@ -153,11 +185,14 @@ class AsyncMonitorService(_MonitorCore):
         profile_provider: Callable[[], MonitorProfile] | None = None,
         review_store=None,
         review_notifier: Callable[[dict], None] | None = None,
+        avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
+        roi_target_provider: Callable[[], float | None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
             review_notifier=review_notifier,
+            avg_online_provider=avg_online_provider,
         )
         self.snapshot_provider = snapshot_provider
         self.review_store = review_store

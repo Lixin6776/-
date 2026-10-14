@@ -17,5 +17,15 @@ def latest_material_analysis(request: Request) -> dict:
 
 
 @router.post("/generate")
-async def generate_material_analysis(request: Request) -> dict:
+async def generate_material_analysis(request: Request, date: str | None = None) -> dict:
+    """Generate the material analysis report.
+
+    Defaults to yesterday (Asia/Shanghai). Pass ``?date=YYYY-MM-DD`` to
+    regenerate a specific day.
+    """
+    if date:
+        from datetime import date as date_type
+
+        target = date_type.fromisoformat(date)
+        return await request.app.state.material_analysis_runner(analysis_date=target)
     return await request.app.state.material_analysis_runner()

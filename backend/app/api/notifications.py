@@ -13,6 +13,8 @@ async def notification_events(request: Request):
     async def stream():
         queue = hub.subscribe()
         try:
+            # 先发一个注释，让响应头立即下发，浏览器 EventSource 才会进入 open 状态
+            yield {"comment": "connected"}
             while True:
                 payload = await queue.get()
                 yield {

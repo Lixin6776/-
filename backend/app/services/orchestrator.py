@@ -121,7 +121,12 @@ class Orchestrator:
         profile: StrategyProfile | None,
         learning_context: dict | None = None,
         read_only_context: dict | None = None,
+        persona: str | None = None,
     ) -> ChatResult:
+        """persona：给不同入口注入角色设定（如「直播运营助手」）。
+
+        不传就保持原来的通用行为，主聊天框不受影响。
+        """
         if profile is None:
             strategy_context = "当前投放策略：未配置；目标=未配置；约束={}"
         else:
@@ -130,7 +135,8 @@ class Orchestrator:
                 f"{profile.primary_objective}; 约束={profile.hard_constraints}"
             )
         context = (
-            f"{strategy_context}; "
+            (f"{persona}; " if persona else "")
+            + f"{strategy_context}; "
             f"learning_context={json.dumps(learning_context, ensure_ascii=False, default=str)}; "
             f"read_only_context={json.dumps(read_only_context, ensure_ascii=False, default=str)}; "
             '请优先输出 JSON：{"kind":"analysis|recommendation|question|error",'

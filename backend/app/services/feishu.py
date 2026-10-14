@@ -17,8 +17,12 @@ from pydantic import BaseModel
 
 FEISHU_CONFIG_PATH = Path(__file__).resolve().parents[3] / ".local" / "feishu_config.json"
 FEISHU_SENT_PATH = Path(__file__).resolve().parents[3] / ".local" / "feishu_sent.json"
-FEISHU_GROUP_NAME = "千川 AI 投放助手"
-FEISHU_GROUP_DESCRIPTION = "千川本地 AI 投放助手 · 直播复盘与素材日报"
+FEISHU_DOC_URLS_PATH = (
+    Path(__file__).resolve().parents[3] / ".local" / "feishu_doc_urls.json"
+)
+FEISHU_DOCS_DIR = Path(__file__).resolve().parents[3] / ".local" / "feishu_docs"
+FEISHU_GROUP_NAME = "直播运营助手"
+FEISHU_GROUP_DESCRIPTION = "直播运营助手 · 直播盯盘、复盘与素材日报"
 
 
 class FeishuConfig(BaseModel):
@@ -70,17 +74,50 @@ def build_feishu_card(
     report_markdown: str,
     report_type: str,
     generated_at: datetime | None = None,
+    doc_url: str | None = None,
 ) -> dict:
     title = _report_title(report_markdown, report_type)
     template, status_text = _report_status(report_markdown)
     time_text = (generated_at or datetime.now(UTC)).astimezone().strftime("%Y-%m-%d %H:%M")
     panel_title = "查看完整直播复盘" if report_type == "live_review" else "查看完整素材分析"
+    doc_label = (
+        "直播复盘飞书文档" if report_type == "live_review" else "素材分析飞书文档"
+    )
+
+    elements: list[dict] = []
+    if doc_url:
+        elements.append(
+            {
+                "tag": "markdown",
+                "content": f"[📄 **打开{doc_label}**]({doc_url})",
+            }
+        )
+        elements.append({"tag": "hr"})
+    elements.extend(
+        [
+            {
+                "tag": "collapsible_panel",
+                "expanded": False,
+                "header": {"title": {"tag": "plain_text", "content": panel_title}},
+                "elements": [
+                    {"tag": "markdown", "content": report_markdown[:20000]}
+                ],
+            },
+            {"tag": "hr"},
+            {
+                "tag": "markdown",
+                "content": "**执行提醒**\n所有预算、出价、计划和素材调整都必须人工确认后执行。",
+                "text_size": "notation",
+            },
+        ]
+    )
+
     return {
         "schema": "2.0",
         "config": {"wide_screen_mode": True},
         "header": {
             "title": {"tag": "plain_text", "content": title},
-            "subtitle": {"tag": "plain_text", "content": f"千川本地 AI 投放助手 · {time_text}"},
+            "subtitle": {"tag": "plain_text", "content": f"直播运营助手 · {time_text}"},
             "template": template,
             "text_tag_list": [
                 {
@@ -90,26 +127,7 @@ def build_feishu_card(
                 }
             ],
         },
-        "body": {
-            "elements": [
-                {
-                    "tag": "collapsible_panel",
-                    "expanded": False,
-                    "header": {
-                        "title": {"tag": "plain_text", "content": panel_title}
-                    },
-                    "elements": [
-                        {"tag": "markdown", "content": report_markdown[:20000]}
-                    ],
-                },
-                {"tag": "hr"},
-                {
-                    "tag": "markdown",
-                    "content": "**执行提醒**\n所有预算、出价、计划和素材调整都必须人工确认后执行。",
-                    "text_size": "notation",
-                },
-            ]
-        },
+        "body": {"elements": elements},
     }
 
 
@@ -413,16 +431,21 @@ class FeishuNotifier:
         sent_path: Path = FEISHU_SENT_PATH,
         client: httpx.Client | None = None,
         lark_runner: LarkCliRunner | None = None,
+        doc_urls_path: Path = FEISHU_DOC_URLS_PATH,
+        docs_dir: Path = FEISHU_DOCS_DIR,
     ) -> None:
         self.store = store
         self.sent_path = sent_path
         self.client = client
         self.lark_runner = lark_runner or LarkCliRunner()
+        # 可注入：测试里指到 tmp_path，避免污染真实 .local
+        self.doc_urls_path = doc_urls_path
+        self.docs_dir = docs_dir
 
     def send_test(self) -> tuple[bool, str]:
         config = self.store.load()
         card = build_feishu_card(
-            "## 飞书连接测试\n\n- 状态：连接成功\n- 说明：千川本地 AI 投放助手已可以发送飞书卡片。",
+            "## 飞书连接测试\n\n- 状态：连接成功\n- 说明：直播运营助手已可以发送飞书卡片。",
             "test",
         )
         ok = self._send_card(config, card)
@@ -435,6 +458,15 @@ class FeishuNotifier:
         key = f"live_review:{review.get('id', '')}"
         return self._send_report(config, key, str(review.get("report_markdown", "")), "live_review")
 
+    def send_alert(self, title: str, body: str) -> bool:
+        """把盯盘异常直接推给用户（不用等他自己去面板上发现）。"""
+        config = self.store.load()
+        if not config.enabled:
+            return False
+        markdown = f"## {title}\n\n{body}"
+        card = build_feishu_card(markdown, "alert")
+        return self._send_card(config, card)
+
     def send_material_analysis(self, report: dict) -> bool:
         config = self.store.load()
         if not config.enabled or not config.auto_send_material_analysis:
@@ -442,10 +474,71 @@ class FeishuNotifier:
         key = f"material_analysis:{report.get('id', '')}"
         return self._send_report(config, key, str(report.get("report_markdown", "")), "material_analysis")
 
+    # --- Feishu document creation ---------------------------------------------
+    def _read_doc_urls(self) -> dict:
+        if not self.doc_urls_path.exists():
+            return {}
+        try:
+            payload = json.loads(self.doc_urls_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _cache_doc_url(self, key: str, url: str) -> None:
+        data = self._read_doc_urls()
+        data[key] = {"url": url, "created_at": datetime.now(UTC).isoformat()}
+        self.doc_urls_path.parent.mkdir(parents=True, exist_ok=True)
+        self.doc_urls_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def create_report_doc(self, markdown: str, title: str, key: str) -> str | None:
+        """Create a Feishu Docx from report markdown; reuse the cached one if any."""
+        cached = self._read_doc_urls().get(key)
+        if isinstance(cached, dict) and cached.get("url"):
+            return str(cached["url"])
+        if not markdown:
+            return None
+        try:
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
+            path = self.docs_dir / f"{key.replace(':', '_')}.md"
+            path.write_text(markdown, encoding="utf-8")
+            # NOTE: lark-cli only accepts @file paths inside the process cwd,
+            # so run it from the docs dir and pass a relative file name.
+            result = self.lark_runner.run_json(
+                [
+                    "docs",
+                    "+create",
+                    "--as",
+                    "user",
+                    "--doc-format",
+                    "markdown",
+                    "--title",
+                    title,
+                    "--content",
+                    f"@{path.name}",
+                ],
+                cwd=self.docs_dir,
+                timeout=180,
+            )
+            if result.get("ok") is False:
+                raise RuntimeError(str(result.get("error") or result))
+            document = ((result.get("data") or {}).get("document")) or {}
+            url = str(document.get("url") or "")
+            if not url:
+                raise RuntimeError(f"飞书文档返回结果缺少 url：{result}")
+        except Exception as exc:  # noqa: BLE001
+            self.store.update_result(False, f"飞书文档创建失败：{exc}")
+            return None
+        self._cache_doc_url(key, url)
+        return url
+
     def _send_report(self, config: FeishuConfig, key: str, markdown: str, report_type: str) -> bool:
         if not markdown or self._already_sent(key):
             return False
-        card = build_feishu_card(markdown, report_type)
+        title = _report_title(markdown, report_type)
+        doc_url = self.create_report_doc(markdown, title, key)
+        card = build_feishu_card(markdown, report_type, doc_url=doc_url)
         ok = self._send_card(config, card)
         if ok:
             self._mark_sent(key)
