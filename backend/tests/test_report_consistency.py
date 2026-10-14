@@ -390,3 +390,40 @@ def test_cold_start_note_appears_in_report():
     text = render_self_check([], ["样本不足（本账户历史 < 5 次采样）：GPM、在线人数 —— 本轮不做绝对水位判断"])
     assert "样本不足" in text
     assert "不做绝对水位判断" in text
+
+
+# --- 判断阈值三层优先级：你设的 > 本账户分位 > 通用线 ------------------------
+
+def test_threshold_priority_custom_beats_baseline_beats_default():
+    from app.services.thresholds import describe, resolve_thresholds
+
+    class _Profile:
+        hard_constraints = {"thresholds": {"gpm": 2500, "cpm": 120}}
+
+    baselines = {
+        "gpm": {"low": 2200.0, "samples": 120},
+        "cpm": {"high": 85.0, "samples": 120},
+        "view_conversion_rate": {"low": 4.2, "samples": 90},
+    }
+    lines = resolve_thresholds(_Profile(), baselines)
+
+    # 你设的 → 用你的
+    assert lines["gpm"]["value"] == 2500 and lines["gpm"]["source"] == "custom"
+    assert lines["cpm"]["value"] == 120 and lines["cpm"]["source"] == "custom"
+    # 你没设、但有历史分位 → 用本账户分位
+    assert lines["view_conversion_rate"]["value"] == 4.2
+    assert lines["view_conversion_rate"]["source"] == "baseline"
+    # 都没有 → 通用线兜底，并且文案必须说明"非本账户"
+    assert lines["exposure_view_rate"]["source"] == "default"
+    assert "通用参考线" in describe(lines["exposure_view_rate"])
+    assert "非本账户" in describe(lines["exposure_view_rate"])
+    # 你设的要能在依据里看出来
+    assert "你在决策窗口设定的值" in describe(lines["gpm"])
+
+
+def test_threshold_defaults_when_no_profile_and_no_history():
+    from app.services.thresholds import resolve_thresholds
+
+    lines = resolve_thresholds(None, None)
+    assert all(item["source"] == "default" for item in lines.values())
+    assert lines["gpm"]["value"] == 3500.0

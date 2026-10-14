@@ -7,6 +7,9 @@ from app.execution.cdp.fixture_adapter import MetricSnapshot
 from app.services.analytics import ComputedMetrics
 from app.services.monitor import MonitorProfile
 from app.services.self_check import render_self_check, self_check, verify_data
+from app.services.thresholds import resolve_thresholds as _resolve_thresholds
+from app.services.thresholds import value_of as _threshold_value
+from app.services.thresholds import text_of as _threshold_text
 
 # 报告里统一使用的「参考线」。
 # 注意：这些不是官方阈值，是我们自己的判断线，正文里必须显式标注出来。
@@ -137,9 +140,27 @@ def _reception_diagnosis(
     return problems, fixes
 
 
-def _build_issues(metrics, cpm, ev_rate, threshold: float | None) -> list[dict]:
-    """把数据问题整理成「现象 + 归因 + 依据」的结构。"""
+def _build_issues(
+    metrics,
+    cpm,
+    ev_rate,
+    threshold: float | None,
+    lines: dict | None = None,
+) -> list[dict]:
+    """把数据问题整理成「现象 + 归因 + 依据」的结构。
+
+    lines = resolve_thresholds() 的结果：每条判断线都带"来源"
+    （你设定的 / 本账户分位 / 通用参考线），依据里必须如实写明是谁定的。
+    """
     issues: list[dict] = []
+    limits = lines or {}
+
+    ev_limit = _threshold_value(limits, "exposure_view_rate", LINE_EXPOSURE_VIEW_RATE)
+    conv_limit = _threshold_value(
+        limits, "view_conversion_rate", LINE_VIEW_CONVERSION_RATE
+    )
+    gpm_limit = _threshold_value(limits, "gpm", LINE_GPM)
+    cpm_limit = _threshold_value(limits, "cpm", LINE_CPM)
 
     def add(focus, phenomenon, basis):
         issues.append({
@@ -149,39 +170,43 @@ def _build_issues(metrics, cpm, ev_rate, threshold: float | None) -> list[dict]:
             "basis": basis,
         })
 
-    if ev_rate is not None and ev_rate < LINE_EXPOSURE_VIEW_RATE:
+    if ev_rate is not None and ev_rate < ev_limit:
         add(
             "曝光观看率",
             f"曝光 {metrics.exposure_count or 0:,} 次，只有 {metrics.view_count or 0:,} 次观看，"
-            f"曝光观看率 {ev_rate:.2f}%（参考线 {LINE_EXPOSURE_VIEW_RATE}%）。"
+            f"曝光观看率 {ev_rate:.2f}%"
+            f"（依据：{_threshold_text(limits, 'exposure_view_rate', LINE_EXPOSURE_VIEW_RATE, '%')}）。"
             "说明**曝光给到了但没人点进来**",
             "官方《优质直播间规则说明书》基础质量·画面",
         )
     if (
         metrics.view_conversion_rate is not None
-        and metrics.view_conversion_rate < LINE_VIEW_CONVERSION_RATE
+        and metrics.view_conversion_rate < conv_limit
     ):
         add(
             "观看成交转化率",
             f"观看 {metrics.view_count or 0:,} 次，成交 {metrics.orders} 单，"
             f"观看成交转化率 {metrics.view_conversion_rate:.2f}%"
-            f"（参考线 {LINE_VIEW_CONVERSION_RATE}%）。"
+            f"（依据：{_threshold_text(limits, 'view_conversion_rate', LINE_VIEW_CONVERSION_RATE, '%')}）。"
             "说明**人进来了但没转化成订单**",
             "官方《优质直播间规则说明书》内容价值·交易价值",
         )
-    if metrics.gpm is not None and metrics.gpm < LINE_GPM:
+    if metrics.gpm is not None and metrics.gpm < gpm_limit:
         add(
             "GPM",
-            f"GPM ¥{metrics.gpm:,.0f}（参考线 ¥{LINE_GPM:,.0f}），"
+            f"GPM ¥{metrics.gpm:,.0f}"
+            f"（依据：{_threshold_text(limits, 'gpm', LINE_GPM, ' 元')}），"
             "单位观看产出不够，是 ROI 上不去的直接原因",
             "官方《优质直播间规则说明书》内容讲解要求",
         )
-    if cpm is not None and cpm > LINE_CPM:
+    if cpm is not None and cpm > cpm_limit:
         add(
             "CPM",
-            f"CPM ¥{cpm:.1f}（参考线 ¥{LINE_CPM:,.0f}），拿量成本偏高",
+            f"CPM ¥{cpm:.1f}"
+            f"（依据：{_threshold_text(limits, 'cpm', LINE_CPM, ' 元')}），拿量成本偏高",
             "官方《CPM 高低由什么决定》",
         )
+
     if metrics.roi is not None and threshold is None:
         # 目标没配置就不能假装有目标去算缺口，否则会写出「目标 2.00」这种假数据
         issues.append({
@@ -198,28 +223,31 @@ def _build_issues(metrics, cpm, ev_rate, threshold: float | None) -> list[dict]:
     elif metrics.roi is not None and metrics.roi < threshold:
         gap = threshold - metrics.roi
         causes = []
-        if ev_rate is not None and ev_rate < LINE_EXPOSURE_VIEW_RATE:
+        if ev_rate is not None and ev_rate < ev_limit:
             causes.append(
-                f"① 曝光观看率 {ev_rate:.2f}% 偏低（参考线 {LINE_EXPOSURE_VIEW_RATE}%）"
-                "→ 曝光没转化成进人，"
-                "直接吃掉 ROI"
+                f"① 曝光观看率 {ev_rate:.2f}% 偏低"
+                f"（{_threshold_text(limits, 'exposure_view_rate', LINE_EXPOSURE_VIEW_RATE, '%')}）"
+                "→ 曝光没转化成进人，直接吃掉 ROI"
             )
         if (
             metrics.view_conversion_rate is not None
-            and metrics.view_conversion_rate < LINE_VIEW_CONVERSION_RATE
+            and metrics.view_conversion_rate < conv_limit
         ):
             causes.append(
                 f"② 观看成交转化率 {metrics.view_conversion_rate:.2f}% 偏低"
-                f"（参考线 {LINE_VIEW_CONVERSION_RATE}%）→ "
-                "进人后没成交，GPM 上不去"
+                f"（{_threshold_text(limits, 'view_conversion_rate', LINE_VIEW_CONVERSION_RATE, '%')}）"
+                "→ 进人后没成交，GPM 上不去"
             )
-        if cpm is not None and cpm > LINE_CPM:
+        if cpm is not None and cpm > cpm_limit:
             causes.append(
-                f"③ CPM ¥{cpm:.1f} 偏高（参考线 ¥{LINE_CPM:,.0f}）→ 拿量成本吃掉利润空间"
+                f"③ CPM ¥{cpm:.1f} 偏高"
+                f"（{_threshold_text(limits, 'cpm', LINE_CPM, ' 元')}）"
+                "→ 拿量成本吃掉利润空间"
             )
-        if metrics.gpm is not None and metrics.gpm < LINE_GPM:
+        if metrics.gpm is not None and metrics.gpm < gpm_limit:
             causes.append(
-                f"④ GPM ¥{metrics.gpm:,.0f} 偏低（参考线 ¥{LINE_GPM:,.0f}）"
+                f"④ GPM ¥{metrics.gpm:,.0f} 偏低"
+                f"（{_threshold_text(limits, 'gpm', LINE_GPM, ' 元')}）"
                 "→ 单位观看产出不够"
             )
         if not causes:
@@ -737,6 +765,7 @@ def build_live_review(
     avg_online: float | None = None,
     online_samples: int = 0,
     roi_target: float | None = None,
+    baselines: dict | None = None,
 ) -> dict:
     ended_at = captured_at or snapshot.captured_at
     # 优先用计划里实际的 ROI 目标（调用方传入），没有才退回策略里的配置值
@@ -903,7 +932,9 @@ def build_live_review(
             "verify_passed": False,
         }
 
-    issues = _build_issues(metrics, cpm, ev_rate, target)
+    issues = _build_issues(
+        metrics, cpm, ev_rate, target, _resolve_thresholds(profile, baselines)
+    )
     quality_section = _quality_section(metrics, cpm, ev_rate)
 
     report = f"""## 直播复盘｜{date_text}｜{room}
