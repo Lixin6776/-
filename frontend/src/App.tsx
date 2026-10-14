@@ -9,6 +9,7 @@ import { OpsChatPanel } from "./components/OpsChatPanel";
 import { MaterialAnalysisList, type MaterialAnalysis } from "./components/MaterialAnalysisList";
 import { FeishuConnectionPanel } from "./components/FeishuConnectionPanel";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
+import { DataSourcePanel } from "./components/DataSourcePanel";
 import { DecisionPanel } from "./components/DecisionPanel";
 import { type LiveMonitorEvent } from "./components/LiveMonitorPanel";
 import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
@@ -53,11 +54,10 @@ const tools: Array<{ id: ToolWindow; label: string }> = [
   { id: "decisions", label: "决策" },
   { id: "jobs", label: "直播运营助手" },
   { id: "llm", label: "大模型" },
-  { id: "api", label: "API 连接" },
   { id: "learning", label: "直播复盘" },
   { id: "evaluation", label: "素材分析" },
   { id: "feishu", label: "飞书" },
-  { id: "advanced", label: "高级操作" }
+  { id: "advanced", label: "数据源" }
 ];
 
 export default function App() {
@@ -229,12 +229,8 @@ export default function App() {
     }
     if (activeWindow === "feishu") return <FeishuConnectionPanel />;
     if (activeWindow === "advanced") {
-      return (
-        <ActionParameterForm
-          actionName="copy_plan"
-          onSubmit={(params) => handleAdvancedAction("copy_plan", params)}
-        />
-      );
+      // 「数据源」：CDP 与 API 两条读取链路统一在这里管
+      return <DataSourcePanel />;
     }
     return null;
   }
