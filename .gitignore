@@ -16,3 +16,5 @@ __pycache__/
 *.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+# 任何目录下的本地数据库都别提交（跑测试时可能在工作目录生成）
+qianchuan.db
