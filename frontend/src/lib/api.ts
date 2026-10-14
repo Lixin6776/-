@@ -420,3 +420,29 @@ export async function generateOpsBriefing(): Promise<OpsChatMessage> {
   if (!response.ok) throw new Error("Failed to generate briefing");
   return response.json();
 }
+
+// --- 本机配置（直播间 / 账户）------------------------------------------------
+
+export type LocalConfig = {
+  saved: { room_name?: string; aavid?: string };
+  effective: { room_name?: string; aavid?: string };
+};
+
+export async function getLocalConfig(): Promise<LocalConfig> {
+  const response = await fetch(`${API_BASE}/api/local-config`);
+  if (!response.ok) throw new Error("Failed to load local config");
+  return response.json();
+}
+
+export async function saveLocalConfig(patch: {
+  room_name?: string;
+  aavid?: string;
+}): Promise<{ saved: Record<string, string>; message: string }> {
+  const response = await fetch(`${API_BASE}/api/local-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch)
+  });
+  if (!response.ok) throw new Error("Failed to save local config");
+  return response.json();
+}

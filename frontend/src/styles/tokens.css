@@ -922,3 +922,25 @@ body { font-size: 14px; line-height: 1.5; }
   border-radius: var(--radius-sm, 4px);
 }
 .threshold-unit { margin-left: 6px; color: var(--color-text-secondary); }
+
+/* --- 数据源：本机配置（直播间 / 账户） --- */
+.data-source-config { margin: var(--space-3) 0; }
+.data-source-config h4 { margin: 0 0 var(--space-2); }
+.data-source-config-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.data-source-config-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.data-source-config-row input {
+  width: 240px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 4px);
+}

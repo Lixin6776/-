@@ -4,7 +4,9 @@ import {
   connectCdp,
   getApiConnectionStatus,
   getCdpConnection,
+  getLocalConfig,
   resumeLiveWatch,
+  saveLocalConfig,
   type CdpConnectionStatus
 } from "../lib/api";
 
@@ -27,6 +29,9 @@ export function DataSourcePanel() {
   const [api, setApi] = useState<ApiStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  // 本机配置：盯哪个直播间 / 哪个账户（不用改 .env）
+  const [form, setForm] = useState({ room_name: "", aavid: "" });
+  const [effective, setEffective] = useState({ room_name: "", aavid: "" });
 
   async function refresh() {
     try {
@@ -38,6 +43,37 @@ export function DataSourcePanel() {
       setApi(await getApiConnectionStatus());
     } catch {
       setApi(null);
+    }
+    try {
+      const cfg = await getLocalConfig();
+      setForm({
+        room_name: cfg.saved?.room_name || "",
+        aavid: cfg.saved?.aavid || ""
+      });
+      setEffective({
+        room_name: cfg.effective?.room_name || "",
+        aavid: cfg.effective?.aavid || ""
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleSaveConfig() {
+    setBusy(true);
+    setNotice("");
+    try {
+      await saveLocalConfig(form);
+      const cfg = await getLocalConfig();
+      setEffective({
+        room_name: cfg.effective?.room_name || "",
+        aavid: cfg.effective?.aavid || ""
+      });
+      setNotice("已保存。留空 = 用 backend/.env 里的值；保存后下次读取即生效，不用重启。");
+    } catch {
+      setNotice("保存失败，检查本地服务。");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -85,6 +121,38 @@ export function DataSourcePanel() {
         工具读千川数据有两条链路，任一时刻只用一条。当前生效：
         <strong>{activeSource}</strong>
       </p>
+
+      <section className="data-source-config">
+        <h4>盯哪个直播间 / 账户</h4>
+        <p className="monitor-signal">
+          填在这里就不用改 backend/.env 了。**留空 = 用 .env 里的值**。
+          {effective.room_name ? ` 当前生效：${effective.room_name}` : ""}
+          {effective.aavid ? `（账户 ${effective.aavid}）` : ""}
+        </p>
+        <div className="data-source-config-row">
+          <label>
+            直播间名称
+            <input
+              aria-label="直播间名称"
+              placeholder="例如：质润官方旗舰店"
+              value={form.room_name}
+              onChange={(e) => setForm({ ...form, room_name: e.target.value })}
+            />
+          </label>
+          <label>
+            账户 ID（可选）
+            <input
+              aria-label="账户 ID"
+              placeholder="巨量千川账户 aavid"
+              value={form.aavid}
+              onChange={(e) => setForm({ ...form, aavid: e.target.value })}
+            />
+          </label>
+          <button className="button-outline" type="button" onClick={handleSaveConfig} disabled={busy}>
+            保存
+          </button>
+        </div>
+      </section>
 
       <div className="data-source-grid">
         <section className={`data-source-card${cdpReady ? " is-active" : ""}`}>
