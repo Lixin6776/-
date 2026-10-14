@@ -254,3 +254,27 @@ def test_stagnation_keeps_when_refresh_shows_no_change(tmp_path):
 
     assert report["spend"] == 100.0
     assert "已自动刷新大屏重新读取，数值仍未变化" in report["report_markdown"]
+
+
+def test_alert_repeats_while_problem_persists(tmp_path):
+    """故障一直不恢复时，不能只响一次就永远安静（真实踩过：断了两天没人知道）。"""
+    from datetime import timedelta
+
+    sent: list = []
+    service = _service(tmp_path, sent)
+    service.alert_repeat_seconds = 6 * 3600
+    broken = {"source": "cdp-error", "room_name": "质润官方旗舰店", "note": "CDP 读取失败"}
+
+    asyncio.run(service._maybe_alert(broken, _Event(), stagnant=False))
+    asyncio.run(service._maybe_alert(broken, _Event(), stagnant=False))
+    assert len(sent) == 1                     # 第一次立刻报，之后不刷屏
+
+    # 模拟 7 小时后故障仍未恢复 → 要再提醒一次
+    service._alerted_at = service._alerted_at - timedelta(hours=7)
+    asyncio.run(service._maybe_alert(broken, _Event(), stagnant=False))
+    assert len(sent) == 2
+
+    # 恢复正常后重置：再次出问题立刻报
+    asyncio.run(service._maybe_alert({"source": "cdp"}, _Event(), stagnant=False))
+    asyncio.run(service._maybe_alert(broken, _Event(), stagnant=False))
+    assert len(sent) == 3

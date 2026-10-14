@@ -1307,6 +1307,7 @@ class LiveWatchService:
         session_end_handler=None,
         alert_notifier=None,
         tick_timeout_seconds: float = 90.0,
+        alert_repeat_seconds: float = 6 * 3600,
         state_path: Path = LIVE_WATCH_STATE_PATH,
     ) -> None:
         self.state_path = state_path
@@ -1333,6 +1334,9 @@ class LiveWatchService:
         # 异常告警（读不到数据 / 数据停滞）。同类问题只报一次，恢复了才会再报。
         self.alert_notifier = alert_notifier
         self._alerted_for: str | None = None
+        # 同类问题不刷屏，但也不能只报一次就永远安静——故障持续时每 N 小时提醒一次
+        self.alert_repeat_seconds = alert_repeat_seconds
+        self._alerted_at = None
         self._task: asyncio.Task | None = None
         self._last_run: datetime | None = None
         self._tick_count = 0
@@ -1862,12 +1866,20 @@ class LiveWatchService:
             condition = "cdp-error"
         elif stagnant:
             condition = "stagnant"
+        now = datetime.now(UTC)
         if condition is None:
+            # 恢复正常 → 重置，下次出问题立刻报
             self._alerted_for = None
+            self._alerted_at = None
             return
-        if condition == self._alerted_for or self.alert_notifier is None:
+        if self.alert_notifier is None:
             return
+        if condition == self._alerted_for and self._alerted_at is not None:
+            elapsed = (now - self._alerted_at).total_seconds()
+            if elapsed < self.alert_repeat_seconds:
+                return  # 同类问题，还没到重复提醒的时间
         self._alerted_for = condition
+        self._alerted_at = now
         title, body = self._alert_text(condition, report, event)
         try:
             await self.alert_notifier(title, body)
