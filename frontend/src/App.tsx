@@ -15,6 +15,7 @@ import { type LiveMonitorEvent } from "./components/LiveMonitorPanel";
 import { LlmConnectionPanel } from "./components/LlmConnectionPanel";
 import { PlanSnapshotPanel } from "./components/PlanSnapshotPanel";
 import { StrategyBanner, type StrategyBannerProfile } from "./components/StrategyBanner";
+import { ThresholdPanel } from "./components/ThresholdPanel";
 import {
   connectMonitor,
   createActionConfirmation,
@@ -197,7 +198,8 @@ export default function App() {
       return <LiveWatchPanel />;
     }
     if (activeWindow === "decisions") {
-      return <DecisionPanel decisions={[]} onConfirm={() => undefined} onReject={() => undefined} />;
+      // 「决策」= 判断标准（阈值由你来定）
+      return <ThresholdPanel />;
     }
     if (activeWindow === "jobs") {
       // 直播运营助手 = 一个能对话的资深运营（执行记录折叠在下方）
