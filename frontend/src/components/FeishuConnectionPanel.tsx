@@ -164,7 +164,7 @@ export function FeishuConnectionPanel({
             </a>
           ) : null}
           <p className="empty-state">
-            扫码后授权 IM 权限，系统会自动创建“千川 AI 投放助手”私有群。
+            扫码后授权 IM 权限，系统会自动创建“直播运营助手”私有群。
           </p>
         </div>
       ) : null}

@@ -706,3 +706,176 @@ body { font-size: 14px; line-height: 1.5; }
 .material-analysis-item header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .material-analysis-item time { color: var(--color-text-secondary); font-size: 12px; }
 .material-analysis-item pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); line-height: 1.7; }
+
+/* ---- 直播盯盘 ---- */
+.live-watch-panel .panel-heading { margin-bottom: var(--space-4); }
+.live-watch-actions { display: flex; gap: var(--space-2); margin: var(--space-3) 0; }
+.live-watch-block { margin-top: var(--space-5); }
+.live-watch-block h3 {
+  margin-bottom: var(--space-2);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+.live-watch-block ul,
+.live-watch-block ol { margin: 0; padding-left: 20px; }
+.live-watch-block li { margin-bottom: 6px; line-height: 1.6; }
+
+/* ---- 报表 Markdown 排版（直播盯盘 / 素材分析 / 直播复盘） ---- */
+.report-message {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-primary, #1f2329);
+  max-width: 100%;
+}
+.report-message > *:first-child { margin-top: 0; }
+.report-message > *:last-child { margin-bottom: 0; }
+
+.report-h2 {
+  margin: 0 0 12px;
+  padding: 0 0 8px 10px;
+  border-left: 3px solid var(--color-accent, #3370ff);
+  border-bottom: 1px solid var(--color-border, #e5e6eb);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.report-h3 {
+  margin: 20px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #1f2329);
+}
+.report-h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #646a73);
+}
+.report-paragraph { margin: 6px 0; }
+.report-list {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+.report-list li { margin: 3px 0; }
+.report-list-ordered { padding-left: 22px; }
+.report-quote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--color-border, #e5e6eb);
+  background: var(--color-fill, #f7f8fa);
+  border-radius: 0 6px 6px 0;
+  color: var(--color-text-secondary, #646a73);
+}
+.report-message hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px dashed var(--color-border, #e5e6eb);
+}
+.report-message a {
+  color: var(--color-accent, #3370ff);
+  text-decoration: none;
+  font-weight: 500;
+}
+.report-message a:hover { text-decoration: underline; }
+.report-message code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--color-fill, #f2f3f5);
+  font-size: 12.5px;
+}
+
+.report-table-wrap {
+  margin: 8px 0 14px;
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #e5e6eb);
+  border-radius: 8px;
+}
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.report-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-secondary, #646a73);
+  background: var(--color-fill, #f7f8fa);
+  border-bottom: 1px solid var(--color-border, #e5e6eb);
+  white-space: nowrap;
+}
+.report-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-light, #f0f1f3);
+}
+.report-table tr:last-child td { border-bottom: 0; }
+.report-table th:not(:first-child),
+.report-table td:not(:first-child) { text-align: right; }
+.report-table tbody tr:hover { background: var(--color-fill, #fafbfc); }
+
+/* ---- 直播运营助手 ---- */
+.ops-role-card {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border, #e5e6eb);
+  border-left: 3px solid var(--color-accent, #3370ff);
+  border-radius: 8px;
+  background: var(--color-fill, #f7f8fa);
+}
+.ops-role-card h3 { margin: 4px 0 8px; font-size: 18px; }
+.ops-role-desc { margin: 0 0 10px; line-height: 1.75; }
+.ops-role-list { margin: 0; padding-left: 18px; color: var(--color-text-secondary, #646a73); }
+.ops-role-list li { margin: 4px 0; font-size: 13px; }
+
+/* --- 直播运营助手：对话面板 --- */
+.ops-chat-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  height: 100%;
+}
+.ops-chat-intro h3 {
+  margin: 2px 0 var(--space-2);
+}
+.ops-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.ops-chat-stream {
+  flex: 1;
+  min-height: 320px;
+  max-height: 58vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.ops-message-tag {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(64, 128, 255, 0.12);
+  color: var(--color-accent, #4080ff);
+  font-size: 11px;
+}
+.ops-message-tag + * {
+  margin-top: 4px;
+}
+.ops-jobs {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+  font-size: 13px;
+}
+.ops-jobs summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}

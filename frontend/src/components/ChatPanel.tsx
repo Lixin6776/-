@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { ReportMessage } from "./ReportMessage";
+
 export type ActionPreview = {
   action_name: string;
   target_id: string;
@@ -70,8 +72,9 @@ function unwrapJsonMessage(content: string): string {
 
 function MessageContent({ content }: { content: string }) {
   const displayContent = unwrapJsonMessage(content);
-  if (displayContent.startsWith("## 直播复盘") || displayContent.startsWith("## 素材分析报告")) {
-    return <pre className="review-message">{displayContent}</pre>;
+  // 复盘 / 素材分析 / 直播盯盘等报表统一走 Markdown 排版
+  if (/^##\s/.test(displayContent)) {
+    return <ReportMessage content={displayContent} />;
   }
   const card = parseStrategyCard(displayContent);
   if (!card) return <p className="message-text">{displayContent}</p>;
@@ -92,24 +95,34 @@ type Message = {
   preview?: ActionPreview;
 };
 
+const INITIAL_MESSAGE: Message = {
+  role: "system",
+  content: "当前处于只读监控阶段。所有投放操作会先展示建议，等待你确认后执行。"
+};
+
 export function ChatPanel({
   onSend,
   onOpenConfirmation,
-  incomingMessage
+  incomingMessage,
+  resetKey = 0
 }: {
   onSend?: (message: string) => Promise<ChatReply>;
   onOpenConfirmation?: (preview: ActionPreview) => void;
   incomingMessage?: { id: string; content: string } | null;
+  /** 变化时清空聊天记录（每场直播开始时由外层触发） */
+  resetKey?: number;
 }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "system",
-      content: "当前处于只读监控阶段。所有投放操作会先展示建议，等待你确认后执行。"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [pending, setPending] = useState(false);
   const seenIncomingId = useRef("");
+
+  // 新场次开播 -> 清空上一场聊天记录
+  useEffect(() => {
+    if (!resetKey) return;
+    seenIncomingId.current = "";
+    setMessages([INITIAL_MESSAGE]);
+  }, [resetKey]);
 
   useEffect(() => {
     if (!incomingMessage || seenIncomingId.current === incomingMessage.id) return;
@@ -146,8 +159,8 @@ export function ChatPanel({
   return (
     <section className="panel chat-panel">
       <div className="panel-heading">
-        <p className="eyebrow">Chatbot</p>
-        <h1>千川本地 AI 投放助手</h1>
+        <p className="eyebrow">Live Ops · 直播运营助手</p>
+        <h1>直播盯盘</h1>
       </div>
       <div className="chat-stream" aria-live="polite">
         {messages.map((message, index) => (

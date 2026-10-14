@@ -29,6 +29,8 @@ test("chat panel renders a material analysis report as a report block", async ()
   );
 
   const report = await screen.findByText(/素材分析报告｜2026-10-01/);
-  expect(report.closest("pre")).not.toBeNull();
+  // 报表现在渲染成结构化的 Markdown 版式，而不是 <pre> 原始文本
+  expect(report.closest(".report-message")).not.toBeNull();
+  expect(report.tagName).toBe("H3");
   expect(screen.getByText(/强化痛点表达/)).toBeInTheDocument();
 });

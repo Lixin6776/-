@@ -16,10 +16,52 @@ export async function sendChat(message: string) {
   return response.json();
 }
 
+/**
+ * 全局单例 SSE。
+ *
+ * 每次组件挂载都新建 EventSource 会把浏览器的同源连接占满（HTTP/1.1 每源 6 条），
+ * 之后所有请求都会排队卡死。这里保证每个地址只保留一条长连接。
+ */
+const sseListeners = new Map<string, Set<(event: unknown) => void>>();
+const sseSources = new Map<string, EventSource>();
+
+function subscribeSse(
+  path: string,
+  eventName: string,
+  onEvent: (event: unknown) => void
+): () => void {
+  let listeners = sseListeners.get(path);
+  if (!listeners) {
+    listeners = new Set();
+    sseListeners.set(path, listeners);
+  }
+  listeners.add(onEvent);
+
+  if (!sseSources.has(path)) {
+    const source = new EventSource(`${API_BASE}${path}`);
+    source.addEventListener(eventName, (event) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse((event as MessageEvent).data);
+      } catch {
+        return;
+      }
+      const current = sseListeners.get(path);
+      if (current) current.forEach((fn) => fn(parsed));
+    });
+    sseSources.set(path, source);
+  }
+
+  return () => {
+    const current = sseListeners.get(path);
+    if (!current) return;
+    current.delete(onEvent);
+    // 注意：故意不关闭 source，保持全局唯一的一条长连接
+  };
+}
+
 export function connectMonitor(onEvent: (event: unknown) => void) {
-  const source = new EventSource(`${API_BASE}/api/monitor/events`);
-  source.addEventListener("monitor", (event) => onEvent(JSON.parse(event.data)));
-  return () => source.close();
+  return subscribeSse("/api/monitor/events", "monitor", onEvent);
 }
 export async function createActionConfirmation(action: {
   action_name: string;
@@ -174,9 +216,7 @@ export async function generateMaterialAnalysis() {
 }
 
 export function connectNotifications(onEvent: (event: unknown) => void) {
-  const source = new EventSource(`${API_BASE}/api/notifications/events`);
-  source.addEventListener("notification", (event) => onEvent(JSON.parse(event.data)));
-  return () => source.close();
+  return subscribeSse("/api/notifications/events", "notification", onEvent);
 }
 
 
@@ -222,5 +262,161 @@ export async function startFeishuLogin() {
 export async function getFeishuLoginStatus() {
   const response = await fetch(`${API_BASE}/api/feishu/login/status`);
   if (!response.ok) throw new Error("Failed to load Feishu login status");
+  return response.json();
+}
+
+export type LiveWatchStatus = {
+  running: boolean;
+  /** 用户「想不想让它跑」。关窗口/关机不算停止，只有点停止才变 false */
+  desired_running?: boolean;
+  /** 想跑但没在跑 = 断开，需要点「恢复盯盘」 */
+  interrupted?: boolean;
+  /** 离上一次成功读取过去了多少秒 */
+  gap_seconds?: number | null;
+  last_tick_at?: string;
+  last_report_at?: string;
+  room_name?: string | null;
+  live_started_at?: string | null;
+  last_error?: string;
+  consecutive_failures?: number;
+  interval_seconds: number;
+  tick_count: number;
+  last_run: string;
+  reports: number;
+  latest?: LiveWatchReport | null;
+  resumed?: boolean;
+  resume_note?: string;
+};
+
+export type CdpConnectionStatus = {
+  endpoint: string;
+  connected: boolean;
+  browser: string | null;
+  pages: number;
+  qianchuan_pages: number;
+  error: string | null;
+  launched?: boolean;
+  chrome_found?: boolean;
+  profile?: string | null;
+  profile_kind?: string | null;
+  needs_login?: boolean;
+  needs_chrome_restart?: boolean;
+  mode_used?: string;
+  message?: string;
+};
+
+export type LiveWatchReport = {
+  id: string;
+  created_at: string;
+  level: string;
+  source: string;
+  roi: number | null;
+  spend: number;
+  gmv: number;
+  gpm: number | null;
+  online_viewers: number;
+  orders: number;
+  spend_delta: number | null;
+  roi_target: number | null;
+  problems: string[];
+  adjustments: string[];
+  operations: Array<{
+    job_id: string;
+    action_name: string;
+    status: string;
+    created_at: string;
+  }>;
+  report_markdown: string;
+};
+
+export async function getLiveWatchStatus(): Promise<LiveWatchStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/status`);
+  if (!response.ok) throw new Error("Failed to load live watch status");
+  return response.json();
+}
+
+export async function startLiveWatch(): Promise<LiveWatchStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/start`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to start live watch");
+  return response.json();
+}
+
+export async function resumeLiveWatch(): Promise<LiveWatchStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/resume`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to resume live watch");
+  return response.json();
+}
+
+export async function getCdpConnection(): Promise<CdpConnectionStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/connection`);
+  if (!response.ok) throw new Error("Failed to load data source status");
+  return response.json();
+}
+
+export async function connectCdp(
+  mode: "auto" | "default" | "assistant" = "auto"
+): Promise<CdpConnectionStatus> {
+  const response = await fetch(
+    `${API_BASE}/api/live-watch/connection/connect?mode=${mode}`,
+    { method: "POST" }
+  );
+  if (!response.ok) throw new Error("Failed to connect data source");
+  return response.json();
+}
+
+export async function heartbeatLiveWatch(): Promise<LiveWatchStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/heartbeat`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to heartbeat live watch");
+  return response.json();
+}
+
+export async function stopLiveWatch(): Promise<LiveWatchStatus> {
+  const response = await fetch(`${API_BASE}/api/live-watch/stop`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to stop live watch");
+  return response.json();
+}
+
+export async function tickLiveWatch(): Promise<LiveWatchReport> {
+  const response = await fetch(`${API_BASE}/api/live-watch/tick`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to run live watch tick");
+  return response.json();
+}
+
+export async function getLiveWatchLogs(limit = 30): Promise<LiveWatchReport[]> {
+  const response = await fetch(`${API_BASE}/api/live-watch/logs?limit=${limit}`);
+  if (!response.ok) throw new Error("Failed to load live watch logs");
+  return response.json();
+}
+
+// --- 直播运营助手（跨场次保留的运营对话）-----------------------------------
+
+export type OpsChatMessage = {
+  id: string;
+  created_at: string;
+  day?: string;
+  role: "user" | "assistant";
+  kind?: "briefing" | "review" | "chat";
+  content: string;
+};
+
+export async function getOpsChatMessages(limit = 100): Promise<OpsChatMessage[]> {
+  const response = await fetch(`${API_BASE}/api/ops-chat/messages?limit=${limit}`);
+  if (!response.ok) throw new Error("Failed to load ops chat");
+  return response.json();
+}
+
+export async function sendOpsChat(message: string): Promise<OpsChatMessage> {
+  const response = await fetch(`${API_BASE}/api/ops-chat/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message })
+  });
+  if (!response.ok) throw new Error("Failed to send ops chat message");
+  return response.json();
+}
+
+export async function generateOpsBriefing(): Promise<OpsChatMessage> {
+  const response = await fetch(`${API_BASE}/api/ops-chat/briefing`, { method: "POST" });
+  if (!response.ok) throw new Error("Failed to generate briefing");
   return response.json();
 }
