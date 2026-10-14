@@ -13,7 +13,6 @@ vi.mock("../lib/api", () => ({
   getCdpConnection: vi.fn().mockResolvedValue({
     connected: true, pages: 1, qianchuan_pages: 1, error: null
   }),
-  getLlmConnectionStatus: vi.fn().mockResolvedValue({ configured: true }),
   tickLiveWatch: vi.fn().mockResolvedValue({}),
   getLiveWatchLogs: vi.fn().mockResolvedValue([]),
   saveLocalConfig: vi.fn().mockResolvedValue({ saved: {}, message: "ok" }),

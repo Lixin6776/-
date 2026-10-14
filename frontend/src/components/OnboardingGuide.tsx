@@ -13,6 +13,7 @@ type Step = {
   title: string;
   done: boolean;
   hint: string;
+  optional?: boolean;
   action?: { label: string; kind: "connect" | "open" | "tick"; target?: string };
 };
 
@@ -70,7 +71,8 @@ export function OnboardingGuide({
         key: "llm",
         title: "填大模型 Key（运营助手对话要用）",
         done: llmOn,
-        hint: llmOn ? "已配置" : "自己申请一个（DeepSeek 等）填进去即可",
+        optional: true,
+        hint: llmOn ? "已配置" : "可选：不填也能盯盘 / 复盘，只是运营助手聊不了天",
         action: { label: "去配置", kind: "open", target: "llm" }
       },
       {
@@ -90,9 +92,11 @@ export function OnboardingGuide({
   }, []);
 
   if (hidden || steps.length === 0) return null;
-  if (steps.every((s) => s.done)) return null;
+  // 可选的步骤（大模型 Key）不算"必做"，全做完必做项就自动隐藏
+  const required = steps.filter((s) => !s.optional);
+  if (required.length === 0 || required.every((s) => s.done)) return null;
 
-  const doneCount = steps.filter((s) => s.done).length;
+  const doneCount = required.filter((s) => s.done).length;
 
   async function run(step: Step) {
     if (!step.action) return;
@@ -116,7 +120,7 @@ export function OnboardingGuide({
   return (
     <section className="onboarding-guide">
       <header>
-        <strong>新手上路（{doneCount}/{steps.length}）</strong>
+        <strong>新手上路（{doneCount}/{required.length}）</strong>
         <button
           className="button-outline"
           type="button"
@@ -132,7 +136,10 @@ export function OnboardingGuide({
         {steps.map((step) => (
           <li key={step.key} className={step.done ? "is-done" : ""}>
             <span className="onboarding-mark">{step.done ? "✓" : "○"}</span>
-            <span className="onboarding-title">{step.title}</span>
+            <span className="onboarding-title">
+              {step.title}
+              {step.optional ? "（可选）" : ""}
+            </span>
             <span className="onboarding-hint">{step.hint}</span>
             {!step.done && step.action ? (
               <button className="button-outline" type="button" onClick={() => run(step)} disabled={busy}>

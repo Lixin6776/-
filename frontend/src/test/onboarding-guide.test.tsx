@@ -35,7 +35,8 @@ test("没配好时显示新手上路清单，并指出当前卡在哪一步", as
   render(<OnboardingGuide />);
 
   await waitFor(() => expect(getLocalConfig).toHaveBeenCalled());
-  expect(await screen.findByText(/新手上路（0\/4）/)).toBeInTheDocument();
+  // 大模型 Key 是可选项，不计入必做进度 → 3 项必做
+  expect(await screen.findByText(/新手上路（0\/3）/)).toBeInTheDocument();
   expect(screen.getByText(/填写直播间名称/)).toBeInTheDocument();
   expect(screen.getByText("连接数据源（本机 Chrome）")).toBeInTheDocument();
   expect(screen.getByText(/填大模型 Key/)).toBeInTheDocument();
@@ -47,6 +48,20 @@ test("全部都配好了就不再显示引导", async () => {
     localConfig: { saved: { room_name: "质润官方旗舰店" }, effective: { room_name: "质润官方旗舰店" } },
     cdp: { connected: true, pages: 3, qianchuan_pages: 3, error: null },
     llm: { configured: true },
+    logs: [{ id: "r1" }]
+  });
+  window.localStorage.removeItem("qca_onboarding_hidden");
+  render(<OnboardingGuide />);
+
+  await waitFor(() => expect(getLiveWatchLogs).toHaveBeenCalled());
+  expect(screen.queryByText(/新手上路/)).not.toBeInTheDocument();
+});
+
+test("必做项都完成时，即使没填大模型 Key 也自动隐藏", async () => {
+  mockAll({
+    localConfig: { saved: { room_name: "质润官方旗舰店" }, effective: { room_name: "质润官方旗舰店" } },
+    cdp: { connected: true, pages: 3, qianchuan_pages: 3, error: null },
+    llm: { configured: false },
     logs: [{ id: "r1" }]
   });
   window.localStorage.removeItem("qca_onboarding_hidden");
