@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "qianchuan-assistant"
 version = "0.1.0"
@@ -36,3 +40,8 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+# 没有这一段，setuptools 自动发现会因为 backend/ 下同时有 app/tests/alembic 而失败，
+# 表现就是全新 clone 里 `pip install -e .` 直接报错（真实踩过）。
+[tool.setuptools.packages.find]
+include = ["app*"]
