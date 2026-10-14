@@ -19,6 +19,12 @@
 
 ## 第一次在新电脑上跑起来
 
+**最简单：双击 `安装依赖.cmd`** —— 它会检测 Python / Node / pnpm（缺了提示去哪装，
+能用 winget 就自动装），然后装好后端和前端依赖，并生成 `backend/.env`。
+装完双击 `启动直播运营助手.cmd` 即可。
+
+想手动装、或者安装脚本跑不通，看下面的手写步骤：
+
 ```powershell
 # 1) 拉代码（仓库名就是个短横线，建议指定目录名）
 git clone https://github.com/Lixin6776/-.git qianchuan-ai-assistant
