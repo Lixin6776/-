@@ -16,6 +16,7 @@ from app.api.chat import router as chat_router
 from app.api.feishu import router as feishu_router
 from app.api.learning import router as learning_router
 from app.api.live_watch import router as live_watch_router
+from app.api.local_config import router as local_config_router
 from app.api.live_reviews import router as live_reviews_router
 from app.api.llm_connection import router as llm_connection_router
 from app.api.material_analyses import router as material_analyses_router
@@ -56,6 +57,7 @@ from app.services.review_backfill import (
     review_date_of,
 )
 from app.services.watch_log_store import SqliteWatchLogStore
+from app.services import local_config
 from app.services.ops_chat import (
     OpsChatStore,
     build_daily_briefing,
@@ -163,7 +165,7 @@ async def lifespan(application: FastAPI):
     material_reader = CdpMaterialReader(
         settings.cdp_endpoint,
         fallback_ad_id=material_detail_fallback_ad_id,
-        plan_room_name=settings.live_board_room_name,
+        plan_room_name=local_config.room_name(settings.live_board_room_name),
     )
     feishu_config_store = FeishuConfigStore()
     feishu_notifier = FeishuNotifier(feishu_config_store)
@@ -419,7 +421,7 @@ async def lifespan(application: FastAPI):
             return None
         try:
             return compute_baselines(
-                logs, room_name=settings.live_board_room_name or None
+                logs, room_name=local_config.room_name(settings.live_board_room_name) or None
             )
         except Exception:  # noqa: BLE001
             return None
@@ -479,7 +481,7 @@ async def lifespan(application: FastAPI):
                 snapshot = await LiveBoardSnapshotReader(
                     settings.cdp_endpoint,
                     page_marker=settings.live_board_page_marker,
-                    room_name=settings.live_board_room_name,
+                    room_name=local_config.room_name(settings.live_board_room_name),
                     room_id=settings.live_board_room_id,
                 ).read(refresh=True)
                 return SnapshotReading(snapshot=snapshot, source="cdp")
@@ -512,7 +514,7 @@ async def lifespan(application: FastAPI):
             reader = LiveBoardSnapshotReader(
                 settings.cdp_endpoint,
                 page_marker=settings.live_board_page_marker,
-                room_name=settings.live_board_room_name,
+                room_name=local_config.room_name(settings.live_board_room_name),
                 room_id=settings.live_board_room_id,
             )
             url = await reader._discover_board_url()
@@ -723,6 +725,7 @@ app.include_router(live_reviews_router)
 app.include_router(material_analyses_router)
 app.include_router(notifications_router)
 app.include_router(ops_chat_router)
+app.include_router(local_config_router)
 app.include_router(llm_connection_router)
 app.include_router(recommendations_router)
 
