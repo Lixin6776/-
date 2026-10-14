@@ -44,7 +44,11 @@ from app.services.live_review import (
     insert_sections,
 )
 from app.services.site_changes import SiteChangeStore
-from app.services.live_watch import LiveWatchLogStore, LiveWatchService
+from app.services.live_watch import (
+    LiveWatchLogStore,
+    LiveWatchService,
+    compute_baselines,
+)
 from app.services.review_backfill import (
     build_catch_up_review,
     group_sessions,
@@ -403,6 +407,23 @@ async def lifespan(application: FastAPI):
         except Exception:  # noqa: BLE001
             return
 
+    def account_baselines() -> dict | None:
+        """本账户历史分位 —— 复盘判断阈值优先用它（其次是你在决策窗口设的值）。
+
+        这里**不带 session**：要的是"这个账户历史上大概什么水平"，
+        不是"本场刚才多少"，所以走同直播间的全量历史。
+        """
+        try:
+            logs = live_watch_store.list_logs(limit=400)
+        except Exception:  # noqa: BLE001
+            return None
+        try:
+            return compute_baselines(
+                logs, room_name=settings.live_board_room_name or None
+            )
+        except Exception:  # noqa: BLE001
+            return None
+
     def plan_roi_target() -> float | None:
         """计划里实际的「综合营销ROI目标」——盯盘和复盘都用它，保证同一场只有一个目标。"""
         plan = getattr(application.state, "latest_plan_snapshot", None)
@@ -449,6 +470,7 @@ async def lifespan(application: FastAPI):
             review_notifier=notify_live_review,
             avg_online_provider=avg_online_provider,
             roi_target_provider=plan_roi_target,
+            baselines_provider=account_baselines,
         )
     else:
 
@@ -476,6 +498,7 @@ async def lifespan(application: FastAPI):
             review_notifier=notify_live_review,
             avg_online_provider=avg_online_provider,
             roi_target_provider=plan_roi_target,
+            baselines_provider=account_baselines,
         )
     async def session_state_provider() -> str:
         """确认「当前有没有在播的场次」。

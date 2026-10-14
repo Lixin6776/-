@@ -427,3 +427,27 @@ def test_threshold_defaults_when_no_profile_and_no_history():
     lines = resolve_thresholds(None, None)
     assert all(item["source"] == "default" for item in lines.values())
     assert lines["gpm"]["value"] == 3500.0
+
+
+def test_review_uses_account_percentile_when_given():
+    """复盘传了 baselines 时，依据要写成"本账户历史分位"，而不是通用参考线。"""
+    baselines = {
+        "gpm": {"low": 900.0, "median": 1500.0, "high": 2500.0, "samples": 120},
+        "view_conversion_rate": {"low": 1.5, "median": 3.0, "high": 5.0, "samples": 120},
+        "exposure_view_rate": {"low": 2.0, "median": 3.5, "high": 5.0, "samples": 120},
+    }
+    report = _review(
+        target=2.5, gpm=800.0, exposure_view_rate=1.5, view_conversion_rate=1.0
+    )["report_markdown"]
+
+    # 没传 baselines（默认）→ 写"通用参考线"
+    assert "通用参考线" in report
+
+    snapshot = _snapshot(target=2.5, gpm=800.0, exposure_view_rate=1.5)
+    metrics = AnalyticsService().compute(snapshot)
+    review = build_live_review(
+        snapshot, metrics, _profile(2.5), snapshot.captured_at, baselines=baselines
+    )
+    text = review["report_markdown"]
+    assert "本账户历史分位" in text
+    assert "通用参考线" not in text or "本账户历史分位" in text

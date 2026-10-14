@@ -50,6 +50,7 @@ class _MonitorCore:
         review_notifier: Callable[[dict], None] | None = None,
         avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
         roi_target_provider: Callable[[], float | None] | None = None,
+        baselines_provider: Callable[[], dict | None] | None = None,
     ) -> None:
         self._default_profile = MonitorProfile(
             version=profile_version,
@@ -68,6 +69,8 @@ class _MonitorCore:
         # 复盘判「是否达标」要用计划里的实际 ROI 目标（和盯盘同一个来源），
         # 不能用策略里写死的值，否则同一场会出现两个目标。
         self.roi_target_provider = roi_target_provider
+        # 判断阈值优先用「本账户历史分位」——给复盘报告算阈值用
+        self.baselines_provider = baselines_provider
         self._latest_event: MonitorEvent | None = None
 
     def latest_event(self) -> MonitorEvent | None:
@@ -111,6 +114,12 @@ class _MonitorCore:
                     plan_target = self.roi_target_provider()
                 except Exception:  # noqa: BLE001
                     plan_target = None
+            baselines = None
+            if self.baselines_provider is not None:
+                try:
+                    baselines = self.baselines_provider()
+                except Exception:  # noqa: BLE001
+                    baselines = None
             review = self.review_store.add_if_absent(
                 build_live_review(
                     snapshot,
@@ -120,6 +129,7 @@ class _MonitorCore:
                     avg_online=avg_online,
                     online_samples=samples,
                     roi_target=plan_target,
+                    baselines=baselines,
                 )
             )
             if self.review_notifier is not None:
@@ -160,12 +170,16 @@ class MonitorService(_MonitorCore):
         review_notifier: Callable[[dict], None] | None = None,
         avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
         roi_target_provider: Callable[[], float | None] | None = None,
+        baselines_provider: Callable[[], dict | None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
             review_notifier=review_notifier,
             avg_online_provider=avg_online_provider,
+            # 之前漏传了 roi_target_provider —— 复盘"用计划目标"那条一直没生效
+            roi_target_provider=roi_target_provider,
+            baselines_provider=baselines_provider,
         )
         self.fixture_path = fixture_path
         self.review_store = review_store
@@ -187,12 +201,16 @@ class AsyncMonitorService(_MonitorCore):
         review_notifier: Callable[[dict], None] | None = None,
         avg_online_provider: Callable[[], tuple[float | None, int]] | None = None,
         roi_target_provider: Callable[[], float | None] | None = None,
+        baselines_provider: Callable[[], dict | None] | None = None,
     ) -> None:
         super().__init__(
             profile_version=profile_version,
             profile_provider=profile_provider,
             review_notifier=review_notifier,
             avg_online_provider=avg_online_provider,
+            # 之前漏传了 roi_target_provider —— 复盘"用计划目标"那条一直没生效
+            roi_target_provider=roi_target_provider,
+            baselines_provider=baselines_provider,
         )
         self.snapshot_provider = snapshot_provider
         self.review_store = review_store
