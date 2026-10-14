@@ -278,3 +278,67 @@ def test_alert_repeats_while_problem_persists(tmp_path):
     asyncio.run(service._maybe_alert({"source": "cdp"}, _Event(), stagnant=False))
     asyncio.run(service._maybe_alert(broken, _Event(), stagnant=False))
     assert len(sent) == 3
+
+
+# --- CDP 断了自动重连（浏览器被关/电脑休眠后不用人再点连接数据源） ------------
+
+
+def _service_reconnect(tmp_path, reconnector, hub=None, sent=None):
+    return LiveWatchService(
+        None,
+        hub,
+        store=SqliteWatchLogStore(tmp_path / "w.sqlite3", tmp_path / "none.json"),
+        cdp_reconnector=reconnector,
+        state_path=tmp_path / "state.json",
+    )
+
+
+def test_cdp_reconnector_fires_after_threshold_and_resets(tmp_path):
+    calls = {"n": 0}
+
+    async def reconnector():
+        calls["n"] += 1
+        return {"connected": True}
+
+    service = _service_reconnect(tmp_path, reconnector)
+    service._consecutive_failures = 1          # 没到阈值 → 不动
+    asyncio.run(service._maybe_reconnect_cdp())
+    assert calls["n"] == 0
+
+    service._consecutive_failures = 3          # 到阈值（默认 3）→ 触发并重置
+    asyncio.run(service._maybe_reconnect_cdp())
+    assert calls["n"] == 1
+    assert service._consecutive_failures == 0
+
+
+def test_cdp_reconnect_has_cooldown(tmp_path):
+    calls = {"n": 0}
+
+    async def reconnector():
+        calls["n"] += 1
+        return {"connected": False}           # 没连上
+
+    service = _service_reconnect(tmp_path, reconnector)
+    service._consecutive_failures = 5
+    asyncio.run(service._maybe_reconnect_cdp())
+    service._consecutive_failures = 5         # 又攒到阈值
+    asyncio.run(service._maybe_reconnect_cdp())
+    assert calls["n"] == 1                     # 冷却期内不重复拉起浏览器
+
+
+def test_cdp_reconnect_publishes_notice(tmp_path):
+    hub = _Hub()
+
+    async def reconnector():
+        return {"connected": True, "needs_login": False}
+
+    service = _service_reconnect(tmp_path, reconnector, hub=hub)
+    service._consecutive_failures = 3
+    asyncio.run(service._maybe_reconnect_cdp())
+    assert any("自动重连" in str(e.get("message") or "") for e in hub.events)
+
+
+def test_no_reconnector_is_safe(tmp_path):
+    service = _service_reconnect(tmp_path, None)
+    service._consecutive_failures = 9
+    asyncio.run(service._maybe_reconnect_cdp())  # 不该抛异常

@@ -1333,6 +1333,7 @@ class LiveWatchService:
         profile_provider=None,
         session_end_handler=None,
         alert_notifier=None,
+        cdp_reconnector=None,
         tick_timeout_seconds: float = 90.0,
         alert_repeat_seconds: float = 6 * 3600,
         state_path: Path = LIVE_WATCH_STATE_PATH,
@@ -1366,6 +1367,12 @@ class LiveWatchService:
         # 同类问题不刷屏，但也不能只报一次就永远安静——故障持续时每 N 小时提醒一次
         self.alert_repeat_seconds = alert_repeat_seconds
         self._alerted_at = None
+        # CDP 断了自动重连：连续失败到阈值后，尝试自己把调试浏览器拉起来。
+        # （用户反馈过：关电脑 / 浏览器被关之后，工具不会自己恢复读数据。）
+        self.cdp_reconnector = cdp_reconnector
+        self.reconnect_after_failures = 3
+        self.reconnect_cooldown_seconds = 600.0
+        self._last_reconnect_at: datetime | None = None
         self._task: asyncio.Task | None = None
         self._last_run: datetime | None = None
         self._tick_count = 0
@@ -1927,6 +1934,44 @@ class LiveWatchService:
         except Exception:  # noqa: BLE001
             pass
 
+    async def _maybe_reconnect_cdp(self) -> None:
+        """读不到数据且连续失败到阈值时，自己把调试浏览器拉起来重连。
+
+        不是每轮都试（会连开一堆窗口），有冷却时间；连上了就重置失败计数。
+        """
+        if self.cdp_reconnector is None:
+            return
+        if self._consecutive_failures < self.reconnect_after_failures:
+            return
+        now = datetime.now(UTC)
+        if (
+            self._last_reconnect_at is not None
+            and (now - self._last_reconnect_at).total_seconds()
+            < self.reconnect_cooldown_seconds
+        ):
+            return
+        self._last_reconnect_at = now
+        try:
+            result = await self.cdp_reconnector()
+        except Exception as exc:  # noqa: BLE001
+            await self._publish_notice(
+                f"数据源自动重连失败：{type(exc).__name__}: {exc}，稍后会再试"
+            )
+            return
+        if not (isinstance(result, dict) and result.get("connected")):
+            return  # 没连上：保持静默，让常规告警去提醒（避免刷屏）
+        self._consecutive_failures = 0
+        self._last_error = ""
+        if result.get("needs_login"):
+            await self._publish_notice(
+                "数据源（调试浏览器）已自动重连，但浏览器还没登录千川："
+                "请在弹出的窗口登录一次，登录后点「恢复盯盘」。"
+            )
+        else:
+            await self._publish_notice(
+                "数据源（调试浏览器）断开后已自动重连，盯盘继续。"
+            )
+
     async def _run(self) -> None:
         while True:
             try:
@@ -1949,6 +1994,7 @@ class LiveWatchService:
                 # 但不要退出循环，等数据源恢复后下一轮自动接上。
                 self._last_error = f"{type(exc).__name__}: {exc}"
                 self._consecutive_failures += 1
+            await self._maybe_reconnect_cdp()
             if self._pending_stop_reason:
                 # 本场已结束：出完复盘就收工，下一场要手动开
                 reason = self._pending_stop_reason

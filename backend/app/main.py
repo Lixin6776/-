@@ -36,6 +36,7 @@ from app.execution.cdp.plan_log_reader import CdpPlanLogReader
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.execution.cdp.plan_split_reader import CdpPlanSplitReader
 from app.services.api_client import OceanEngineApiClient
+from app.services.cdp_connection import connect as cdp_connect
 from app.services.feishu import FeishuConfigStore, FeishuNotifier, FeishuQrAuthService
 from app.services.live_review import (
     LiveReviewStore,
@@ -597,6 +598,8 @@ async def lifespan(application: FastAPI):
         profile_provider=current_profile,
         session_end_handler=on_session_ended,
         alert_notifier=notify_watch_alert,
+        # CDP 断了（浏览器被关/电脑休眠）自动重连，不用人再点「连接数据源」
+        cdp_reconnector=partial(cdp_connect, settings.cdp_endpoint, mode="auto"),
     )
     if settings.enable_background_jobs:
         await application.state.live_watch_service.resume_if_needed()
