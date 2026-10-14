@@ -5,6 +5,18 @@ import App from "../App";
 import { ChatPanel } from "../components/ChatPanel";
 
 vi.mock("../lib/api", () => ({
+  // App 里挂的「新手上路」引导会调这几个接口，mock 里必须有
+  getLocalConfig: vi.fn().mockResolvedValue({
+    saved: {},
+    effective: { room_name: "质润官方旗舰店", aavid: "1" }
+  }),
+  getCdpConnection: vi.fn().mockResolvedValue({
+    connected: true, pages: 1, qianchuan_pages: 1, error: null
+  }),
+  getLlmConnectionStatus: vi.fn().mockResolvedValue({ configured: true }),
+  tickLiveWatch: vi.fn().mockResolvedValue({}),
+  getLiveWatchLogs: vi.fn().mockResolvedValue([]),
+  saveLocalConfig: vi.fn().mockResolvedValue({ saved: {}, message: "ok" }),
   createStrategyProfile: vi.fn().mockResolvedValue({
     id: "p1",
     version: 10,

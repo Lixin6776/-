@@ -5,6 +5,7 @@ import { ApiConnectionPanel } from "./components/ApiConnectionPanel";
 import { ChatPanel, type ActionPreview, type ChatReply } from "./components/ChatPanel";
 import { LiveReviewList, type LiveReview } from "./components/LiveReviewList";
 import { LiveWatchPanel } from "./components/LiveWatchPanel";
+import { OnboardingGuide } from "./components/OnboardingGuide";
 import { OpsChatPanel } from "./components/OpsChatPanel";
 import { MaterialAnalysisList, type MaterialAnalysis } from "./components/MaterialAnalysisList";
 import { FeishuConnectionPanel } from "./components/FeishuConnectionPanel";
@@ -29,7 +30,8 @@ import {
   generateMaterialAnalysis,
   connectNotifications,
   previewAction,
-  sendChat
+  sendChat,
+  tickLiveWatch
 } from "./lib/api";
 
 const fallbackProfile: StrategyBannerProfile = {
@@ -243,6 +245,13 @@ export default function App() {
     <div className="app-shell">
       <StrategyBanner profile={profile} />
       <PlanSnapshotPanel event={monitorEvent} />
+      <OnboardingGuide
+        onOpenWindow={(windowId) => windowId && setActiveWindow(windowId as ToolWindow)}
+        onTick={() => {
+          // 引导里的"立即读取"：直接触发一轮盯盘
+          tickLiveWatch().catch(() => undefined);
+        }}
+      />
       <div className="workspace byte-workspace">
         <nav className="tool-nav panel" aria-label="功能导航">
           {tools.map((item) => (

@@ -944,3 +944,29 @@ body { font-size: 14px; line-height: 1.5; }
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm, 4px);
 }
+
+/* --- 新手上路引导 --- */
+.onboarding-guide {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-accent, #4080ff);
+  border-radius: var(--radius-md);
+}
+.onboarding-guide header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.onboarding-guide ol { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
+.onboarding-guide li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.onboarding-guide li.is-done { color: var(--color-text-secondary); }
+.onboarding-mark { width: 1em; }
+.onboarding-title { font-weight: 600; }
+.onboarding-hint { color: var(--color-text-secondary); }
