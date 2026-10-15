@@ -555,7 +555,12 @@ async def test_material_analysis_job_reuses_fresh_report(tmp_path):
         {
             "id": "fresh",
             "date": "2026-10-14",
-            "metrics": {"material_count": 50, "sampled_material_count": 50, "total_material_spend": 28756.76},
+            "metrics": {
+                "report_schema": 3,
+                "material_count": 50,
+                "sampled_material_count": 50,
+                "total_material_spend": 28756.76,
+            },
         }
     )
 
@@ -572,3 +577,46 @@ async def test_material_analysis_job_reuses_fresh_report(tmp_path):
     )
     report = await run_material_analysis_job(SimpleNamespace(state=state), analysis_date=date(2026, 10, 14))
     assert report["id"] == "fresh"
+
+
+def test_material_analysis_prefers_day_metrics():
+    """账户口径要用目标那天的读数，而不是"最近一次盯盘读数"（口径必须对齐）。"""
+    from app.services.analytics import ComputedMetrics
+
+    day = ComputedMetrics(
+        roi=2.47, gpm=2025.0, spend=38725.68, gmv=95642.25,
+        orders=523, online_viewers=41, views=29824,
+    )
+    report = build_material_analysis(
+        PlanSnapshot(id="p", name="计划一", status="active", budget=5000, roi_goal=2.8),
+        _event(),
+        report_date=date(2026, 10, 14),
+        materials=[MaterialMetric(material_id="a", name="A", spend=1000, roi=2.0, gmv=2000, orders=10)],
+        day_metrics=day,
+    )
+    assert report["metrics"]["spend"] == 38725.68
+    assert report["metrics"]["roi"] == 2.47
+    assert "¥38,725.68" in report["report_markdown"]
+
+
+def test_day_account_metrics_picks_target_day_last_reading(tmp_path):
+    from app.main import _day_account_metrics
+    from app.services.watch_log_store import SqliteWatchLogStore
+
+    store = SqliteWatchLogStore(tmp_path / "w.sqlite3", tmp_path / "none.json")
+    store.append({"id": "1", "source": "cdp", "created_at": "2026-10-14T10:00:00+08:00",
+                  "roi": 1.0, "spend": 100.0, "gmv": 100.0, "orders": 1,
+                  "online_viewers": 5, "views": 50, "gpm": 2000.0})
+    store.append({"id": "2", "source": "cdp", "created_at": "2026-10-14T20:00:00+08:00",
+                  "roi": 2.47, "spend": 38725.68, "gmv": 95642.25, "orders": 523,
+                  "online_viewers": 41, "views": 29824, "gpm": 2025.0})
+    store.append({"id": "3", "source": "cdp", "created_at": "2026-10-15T09:00:00+08:00",
+                  "roi": 9.9, "spend": 99999.0, "gmv": 1.0, "orders": 1,
+                  "online_viewers": 1, "views": 1, "gpm": 1.0})
+
+    app = SimpleNamespace(state=SimpleNamespace(live_watch_service=SimpleNamespace(store=store)))
+    m = _day_account_metrics(app, date(2026, 10, 14))
+    assert m is not None
+    assert m.spend == 38725.68     # 取的是 10-14 当天最后一条，不是 10-15
+    assert m.roi == 2.47
+    assert m.orders == 523

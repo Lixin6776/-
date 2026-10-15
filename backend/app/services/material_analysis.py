@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from app.services.action_planner import PlanSnapshot
+from app.services.analytics import ComputedMetrics
 from app.services.monitor import MonitorEvent
 
 MATERIAL_ANALYSIS_PATH = (
@@ -313,6 +314,7 @@ def _material_analysis(
     )
 
     summary = {
+        "report_schema": 3,
         "material_count": len(materials),
         "sampled_material_count": len(spent),
         "sampled_material_spend": sample_spend,
@@ -350,10 +352,17 @@ def build_material_analysis(
     materials_error: str | None = None,
     previous_materials: list[MaterialMetric] | None = None,
     server_total_spend: float | None = None,
+    day_metrics: ComputedMetrics | None = None,
+    account_note: str | None = None,
 ) -> dict:
     now = generated_at or datetime.now(UTC)
     analysis_date = report_date or now.astimezone().date()
-    metrics = event.metrics if event is not None else None
+    account_note_line = f"\n- ⚠️ {account_note}" if account_note else ""
+    # 账户口径优先用"目标那天"的读数（day_metrics）；拿不到才退回最近一次盯盘读数。
+    if day_metrics is not None:
+        metrics = day_metrics
+    else:
+        metrics = event.metrics if event is not None else None
     roi_target = plan.roi_goal if plan is not None else None
     roi = metrics.roi if metrics is not None else plan.roi if plan is not None else None
     roi_met = None if roi_target is None else (roi is not None and roi >= roi_target)
@@ -369,6 +378,7 @@ def build_material_analysis(
     else:
         assessment, directions = _generic_directions(roi_met)
         summary = {
+            "report_schema": 3,
             "material_count": 0,
             "sampled_material_count": 0,
             "sampled_material_spend": 0.0,
@@ -408,7 +418,7 @@ def build_material_analysis(
 - 整体成交订单数：{metrics.orders if metrics is not None else "--"}
 - GPM：{_currency(metrics.gpm) if metrics is not None and metrics.gpm is not None else "--"}
 - 目标ROI：{_ratio(roi_target)}
-- 长期策略约束：{event.banner if event is not None else "暂无法读取"}
+- 长期策略约束：{event.banner if event is not None else "暂无法读取"}{account_note_line}
 
 {assessment}
 
@@ -468,10 +478,15 @@ class MaterialAnalysisStore:
             existing_spend = float(existing_metrics.get("total_material_spend") or 0.0)
             new_spend = float(new_metrics.get("total_material_spend") or 0.0)
             # 总消耗是"数据全不全"最可靠的信号（现在来自服务端精确聚合）：
-            # 消耗更高就替换；消耗持平、素材数更多也替换。
+            # 消耗更高就替换；消耗持平、素材数更多也替换；
+            # 报告格式版本更高（修复了口径/算法）也替换。
             # 否则保留旧报告，避免用更差的数据覆盖。
-            better = new_spend > existing_spend or (
-                new_spend == existing_spend and new_count > existing_count
+            new_schema = int(new_metrics.get("report_schema") or 0)
+            existing_schema = int(existing_metrics.get("report_schema") or 0)
+            better = (
+                new_schema > existing_schema
+                or new_spend > existing_spend
+                or (new_spend == existing_spend and new_count > existing_count)
             )
             if not better:
                 return existing
@@ -506,6 +521,8 @@ async def generate_and_publish_material_analysis(
     hub,
     material_reader=None,
     analysis_date: date | None = None,
+    day_metrics: ComputedMetrics | None = None,
+    account_note: str | None = None,
 ) -> dict:
     event = monitor_service.latest_event() if hasattr(monitor_service, "latest_event") else None
     if event is None:
@@ -542,6 +559,8 @@ async def generate_and_publish_material_analysis(
             report_date=analysis_date,
             materials_error=materials_error,
             server_total_spend=server_total_spend,
+            day_metrics=day_metrics,
+            account_note=account_note,
         )
     )
     await hub.publish(

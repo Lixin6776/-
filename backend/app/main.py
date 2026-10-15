@@ -35,6 +35,7 @@ from app.execution.cdp.material_reader import CdpMaterialReader
 from app.execution.cdp.plan_log_reader import CdpPlanLogReader
 from app.execution.cdp.plan_reader import CdpPlanReader
 from app.execution.cdp.plan_split_reader import CdpPlanSplitReader
+from app.services.analytics import ComputedMetrics
 from app.services.api_client import OceanEngineApiClient
 from app.services.cdp_connection import connect as cdp_connect
 from app.services.feishu import FeishuConfigStore, FeishuNotifier, FeishuQrAuthService
@@ -93,6 +94,54 @@ MATERIAL_ANALYSIS_HOUR = 8
 MATERIAL_ANALYSIS_CATCH_UP_DAYS = 3
 
 
+def _day_account_metrics(application: FastAPI, analysis_date: "date") -> ComputedMetrics | None:
+    """目标日最后一条有效盯盘读数 → 当天的账户口径。
+
+    素材报告里的「综合成本 / ROI / 净成交 / 订单 / GPM」应该是**目标那天**的，
+    不能拿"最近一次盯盘读数"（那是今天那一刻的）。这里和复盘同源：都用盯盘记录。
+    """
+    service = getattr(application.state, "live_watch_service", None)
+    store = getattr(service, "store", None)
+    if store is None:
+        return None
+    target = analysis_date.isoformat()
+    try:
+        logs = store.list_logs(limit=800)
+    except Exception:  # noqa: BLE001
+        return None
+    best = None
+    best_ts = None
+    for report in logs:
+        if report.get("source") == "cdp-error":
+            continue
+        try:
+            ts = datetime.fromisoformat(str(report.get("created_at")))
+        except (TypeError, ValueError):
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+        if ts.astimezone(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d") != target:
+            continue
+        if best_ts is None or ts > best_ts:
+            best_ts = ts
+            best = report
+    if best is None:
+        return None
+    return ComputedMetrics(
+        roi=best.get("roi"),
+        gpm=best.get("gpm"),
+        spend=float(best.get("spend") or 0.0),
+        gmv=float(best.get("gmv") or 0.0),
+        orders=int(best.get("orders") or 0),
+        online_viewers=int(best.get("online_viewers") or 0),
+        views=int(best.get("views") or 0),
+        exposure_view_rate=best.get("exposure_view_rate"),
+        view_conversion_rate=best.get("view_conversion_rate"),
+        room_name=best.get("room_name"),
+        live_room_id=best.get("live_room_id"),
+    )
+
+
 async def run_material_analysis_job(
     application: FastAPI,
     analysis_date: "date | None" = None,
@@ -112,15 +161,16 @@ async def run_material_analysis_job(
         None,
     )
     existing_metrics = (existing.get("metrics") or {}) if existing is not None else {}
-    # 旧报告没有 sampled_material_count（那时是用"前 N 条明细求和"当总消耗，会少算约 10%）；
-    # 命中旧报告时重算一次，用上服务端精确总额，算完自愈。
-    existing_is_stale = existing is not None and "sampled_material_count" not in existing_metrics
+    # 老版本报告（report_schema != 2）用的是"前 N 条明细求和当总消耗"+"最近一次盯盘读数当账户口径"，
+    # 命中就重算一次，用上服务端精确总额 + 目标日读数，算完自愈。
+    existing_is_stale = existing is not None and existing_metrics.get("report_schema") != 3
     if (
         existing is not None
         and int(existing_metrics.get("material_count", 0) or 0) > 0
         and not existing_is_stale
     ):
         return existing
+    day_metrics = _day_account_metrics(application, target_date)
     report = await generate_and_publish_material_analysis(
         application.state.monitor_service,
         lambda: getattr(application.state, "latest_plan_snapshot", None),
@@ -128,6 +178,13 @@ async def run_material_analysis_job(
         application.state.notification_hub,
         material_reader=application.state.material_reader,
         analysis_date=target_date,
+        day_metrics=day_metrics,
+        # 历史某天没有有效盯盘数据时，账户口径只能退回"最近一次读数" —— 得如实说明
+        account_note=(
+            "当天没有有效盯盘数据，下面的账户口径（综合成本 / ROI 等）取自最近一次读数，仅供参考"
+            if target_date < local_today and day_metrics is None
+            else None
+        ),
     )
     feishu_notifier = getattr(application.state, "feishu_notifier", None)
     if feishu_notifier is not None:
@@ -151,8 +208,8 @@ async def catch_up_material_analysis(application: FastAPI) -> None:
             item.get("date")
             for item in store.list_analyses()
             if int((item.get("metrics") or {}).get("material_count", 0) or 0) > 0
-            # 旧格式报告（没有 sampled_material_count）不算"已有"，让它重算一次
-            and "sampled_material_count" in (item.get("metrics") or {})
+            # 老版本报告（report_schema != 2）不算"已有"，让它重算一次
+            and (item.get("metrics") or {}).get("report_schema") == 3
         }
         for offset in range(1, MATERIAL_ANALYSIS_CATCH_UP_DAYS + 1):
             target = today.date() - timedelta(days=offset)
