@@ -111,7 +111,15 @@ async def run_material_analysis_job(
         (item for item in store.list_analyses() if item.get("date") == target_date.isoformat()),
         None,
     )
-    if existing is not None and int((existing.get("metrics") or {}).get("material_count", 0) or 0) > 0:
+    existing_metrics = (existing.get("metrics") or {}) if existing is not None else {}
+    # 旧报告没有 sampled_material_count（那时是用"前 N 条明细求和"当总消耗，会少算约 10%）；
+    # 命中旧报告时重算一次，用上服务端精确总额，算完自愈。
+    existing_is_stale = existing is not None and "sampled_material_count" not in existing_metrics
+    if (
+        existing is not None
+        and int(existing_metrics.get("material_count", 0) or 0) > 0
+        and not existing_is_stale
+    ):
         return existing
     report = await generate_and_publish_material_analysis(
         application.state.monitor_service,
@@ -143,6 +151,8 @@ async def catch_up_material_analysis(application: FastAPI) -> None:
             item.get("date")
             for item in store.list_analyses()
             if int((item.get("metrics") or {}).get("material_count", 0) or 0) > 0
+            # 旧格式报告（没有 sampled_material_count）不算"已有"，让它重算一次
+            and "sampled_material_count" in (item.get("metrics") or {})
         }
         for offset in range(1, MATERIAL_ANALYSIS_CATCH_UP_DAYS + 1):
             target = today.date() - timedelta(days=offset)

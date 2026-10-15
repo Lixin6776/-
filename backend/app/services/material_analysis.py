@@ -193,12 +193,16 @@ def _material_analysis(
     previous_materials: list[MaterialMetric] | None,
     roi_target: float | None,
     analysis_date: date,
+    server_total_spend: float | None = None,
 ) -> tuple[str, str, str, list[str], dict]:
     spent = [item for item in materials if item.spend > 0]
     spent.sort(key=lambda item: item.spend, reverse=True)
     previous_by_id = {item.material_id: item for item in (previous_materials or [])}
     current_by_id = {item.material_id: item for item in materials}
-    total_spend = sum(item.spend for item in spent)
+    sample_spend = sum(item.spend for item in spent)
+    # 总消耗优先用服务端聚合值：素材列表一天有一两千条（大量长尾），
+    # 明细只取前 N 条，用明细求和会少算约 10%（实测 10-14 少 10.4%）。
+    total_spend = server_total_spend if server_total_spend is not None else sample_spend
     high_spend_cutoff = max(500.0, total_spend * 0.05) if total_spend else 0.0
     running = [item for item in spent if item.spend >= high_spend_cutoff]
     running_spend = sum(item.spend for item in running)
@@ -310,6 +314,8 @@ def _material_analysis(
 
     summary = {
         "material_count": len(materials),
+        "sampled_material_count": len(spent),
+        "sampled_material_spend": sample_spend,
         "total_material_spend": total_spend,
         "new_material_count": len(new_materials),
         "new_material_spend": new_material_spend,
@@ -343,6 +349,7 @@ def build_material_analysis(
     report_date: date | None = None,
     materials_error: str | None = None,
     previous_materials: list[MaterialMetric] | None = None,
+    server_total_spend: float | None = None,
 ) -> dict:
     now = generated_at or datetime.now(UTC)
     analysis_date = report_date or now.astimezone().date()
@@ -357,12 +364,15 @@ def build_material_analysis(
             previous_materials,
             roi_target,
             analysis_date,
+            server_total_spend=server_total_spend,
         )
     else:
         assessment, directions = _generic_directions(roi_met)
         summary = {
             "material_count": 0,
-            "total_material_spend": 0.0,
+            "sampled_material_count": 0,
+            "sampled_material_spend": 0.0,
+            "total_material_spend": server_total_spend if server_total_spend is not None else 0.0,
             "new_material_count": 0,
             "new_material_spend": 0.0,
             "running_material_count": 0,
@@ -387,7 +397,7 @@ def build_material_analysis(
 
 - 计划：{plan.name if plan is not None else "暂无法读取"}
 - 素材总消耗：{_currency(summary["total_material_spend"])}
-- 有消耗素材数：{summary["material_count"]}
+- 有消耗素材数：{summary["sampled_material_count"]} 条（按消耗降序取的明细样本，长尾未逐条列出）
 - 新素材上新：{summary["new_material_count"]} 条
 - 新素材消耗：{_currency(summary["new_material_spend"])}
 - 跑量素材数：{summary["running_material_count"]} 条
@@ -451,9 +461,19 @@ class MaterialAnalysisStore:
         )
         if existing_index is not None:
             existing = items[existing_index]
-            existing_count = int(existing.get("metrics", {}).get("material_count", 0) or 0)
-            new_count = int(report.get("metrics", {}).get("material_count", 0) or 0)
-            if new_count <= existing_count:
+            existing_metrics = existing.get("metrics", {}) or {}
+            new_metrics = report.get("metrics", {}) or {}
+            existing_count = int(existing_metrics.get("material_count", 0) or 0)
+            new_count = int(new_metrics.get("material_count", 0) or 0)
+            existing_spend = float(existing_metrics.get("total_material_spend") or 0.0)
+            new_spend = float(new_metrics.get("total_material_spend") or 0.0)
+            # 总消耗是"数据全不全"最可靠的信号（现在来自服务端精确聚合）：
+            # 消耗更高就替换；消耗持平、素材数更多也替换。
+            # 否则保留旧报告，避免用更差的数据覆盖。
+            better = new_spend > existing_spend or (
+                new_spend == existing_spend and new_count > existing_count
+            )
+            if not better:
                 return existing
             items[existing_index] = report
             self._write(items)
@@ -495,9 +515,15 @@ async def generate_and_publish_material_analysis(
     materials = None
     previous_materials = None
     materials_error = None
+    server_total_spend: float | None = None
     if material_reader is not None and analysis_date is not None:
         try:
-            materials = await material_reader.read(analysis_date)
+            if hasattr(material_reader, "read_with_total"):
+                materials, server_total_spend = await material_reader.read_with_total(
+                    analysis_date
+                )
+            else:
+                materials = await material_reader.read(analysis_date)
         except Exception as exc:  # noqa: BLE001
             materials_error = str(exc)
         if materials is not None:
@@ -515,6 +541,7 @@ async def generate_and_publish_material_analysis(
             previous_materials=previous_materials,
             report_date=analysis_date,
             materials_error=materials_error,
+            server_total_spend=server_total_spend,
         )
     )
     await hub.publish(

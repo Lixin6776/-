@@ -464,47 +464,69 @@ class CdpMaterialReader:
                 await asyncio.sleep(1.5 * (attempt + 1))
         raise last_exc if last_exc is not None else RuntimeError("连接 CDP 失败")
 
-    async def read(self, analysis_date: date, limit: int = 50) -> list[MaterialMetric]:
+    async def _capture_template_with_retry(self, page) -> dict:
+        """捕获素材列表请求模板；页面陈旧时刷新再试一次。"""
+        try:
+            return await self._capture_list_request(page)
+        except Exception:  # noqa: BLE001
+            with suppress(Exception):
+                await page.reload(wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_timeout(6000)
+            return await self._capture_list_request(page)
+
+    async def _post_material_list(self, page, template: dict, analysis_date: date, limit: int) -> dict:
+        body = build_material_query_body(template, analysis_date, limit=limit)
+        advertiser_id = self._advertiser_id(page.url)
+        payload = await page.evaluate(
+            """async ({url, body}) => {
+              const response = await fetch(url, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Accept": "application/json, text/plain, */*"
+                },
+                body: JSON.stringify(body)
+              });
+              return await response.json();
+            }""",
+            {
+                "url": f"{MATERIAL_LIST_PATH}&aavid={advertiser_id}",
+                "body": body,
+            },
+        )
+        if not isinstance(payload, dict) or payload.get("status_code") != 0:
+            message = payload.get("message") if isinstance(payload, dict) else payload
+            raise RuntimeError(f"素材接口返回失败：{message}")
+        return payload
+
+    async def read_with_total(
+        self, analysis_date: date, limit: int = 100
+    ) -> tuple[list[MaterialMetric], float | None]:
+        """一次请求同时拿：素材明细（按消耗降序前 N 条）+ 服务端总消耗。
+
+        为什么不能用明细求和当总额：素材列表一天有一两千条（大量长尾），
+        只取页 1 的 N 条会少算约 10%。服务端 statsData.totals 是精确聚合值。
+        """
         async with async_playwright() as playwright:
             browser = await self._connect(playwright)
             try:
                 context = browser.contexts[0]
                 page = await self._ensure_target_page(context)
-                try:
-                    template = await self._capture_list_request(page)
-                except Exception:  # noqa: BLE001
-                    # page may be stale; reload once and retry
-                    with suppress(Exception):
-                        await page.reload(wait_until="domcontentloaded", timeout=60000)
-                        await page.wait_for_timeout(6000)
-                    template = await self._capture_list_request(page)
+                template = await self._capture_template_with_retry(page)
                 self._remember_page_url(page.url)
-                body = build_material_query_body(template, analysis_date, limit=limit)
-                advertiser_id = self._advertiser_id(page.url)
-                payload = await page.evaluate(
-                    """async ({url, body}) => {
-                      const response = await fetch(url, {
-                        method: "POST",
-                        credentials: "include",
-                        headers: {
-                          "Content-Type": "application/json",
-                          "Accept": "application/json, text/plain, */*"
-                        },
-                        body: JSON.stringify(body)
-                      });
-                      return await response.json();
-                    }""",
-                    {
-                        "url": f"{MATERIAL_LIST_PATH}&aavid={advertiser_id}",
-                        "body": body,
-                    },
-                )
-                if not isinstance(payload, dict) or payload.get("status_code") != 0:
-                    message = payload.get("message") if isinstance(payload, dict) else payload
-                    raise RuntimeError(f"素材接口返回失败：{message}")
-                return parse_material_list_response(payload)
+                payload = await self._post_material_list(page, template, analysis_date, limit)
+                materials = parse_material_list_response(payload)
+                stats = (payload.get("data") or {}).get("statsData") or {}
+                totals = stats.get("totals") if isinstance(stats, dict) else None
+                total_spend = _number(totals, "statCostForRoi2") if isinstance(totals, dict) else None
+                return materials, total_spend
             finally:
                 await playwright.stop()
+
+    async def read(self, analysis_date: date, limit: int = 100) -> list[MaterialMetric]:
+        materials, _ = await self.read_with_total(analysis_date, limit=limit)
+        return materials
 
     async def read_totals(
         self,

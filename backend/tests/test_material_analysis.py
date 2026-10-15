@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
 import pytest
 
@@ -428,3 +429,146 @@ async def test_material_reader_connect_retries_then_succeeds(monkeypatch):
 
 async def _noop():
     return None
+
+
+def test_material_analysis_uses_server_total_spend():
+    """总消耗必须用服务端聚合值 —— 明细只有前 N 条，求和会少算（实测约 10%）。"""
+    materials = [
+        MaterialMetric(material_id="a", name="A", spend=1000, roi=2.0, gmv=2000, orders=10),
+        MaterialMetric(material_id="b", name="B", spend=500, roi=1.5, gmv=750, orders=5),
+    ]
+    report = build_material_analysis(
+        PlanSnapshot(id="p", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        _event(),
+        report_date=date(2026, 10, 14),
+        materials=materials,
+        server_total_spend=9999.0,
+    )
+    assert report["metrics"]["total_material_spend"] == 9999.0
+    assert report["metrics"]["sampled_material_spend"] == 1500.0
+    assert "¥9,999.00" in report["report_markdown"]
+
+
+@pytest.mark.asyncio
+async def test_generate_prefers_read_with_total(tmp_path):
+    """reader 支持 read_with_total 时要用它拿服务端总额。"""
+    from app.services.material_analysis import generate_and_publish_material_analysis
+
+    class FakeReader:
+        async def read(self, _d):
+            raise AssertionError("不该调用 read()")
+
+        async def read_with_total(self, _d):
+            return (
+                [MaterialMetric(material_id="a", name="A", spend=1000, roi=2.0, gmv=2000, orders=10)],
+                8888.0,
+            )
+
+    class FakeHub:
+        async def publish(self, _payload):
+            return None
+
+    store = MaterialAnalysisStore(tmp_path / "materials.json")
+    report = await generate_and_publish_material_analysis(
+        SimpleNamespace(latest_event=lambda: _event()),
+        lambda: PlanSnapshot(id="p", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        store,
+        FakeHub(),
+        material_reader=FakeReader(),
+        analysis_date=date(2026, 10, 14),
+    )
+    assert report["metrics"]["total_material_spend"] == 8888.0
+
+
+def test_store_replaces_when_total_spend_improves(tmp_path):
+    """同一天、素材数相同但总消耗更高（数据更全）时，要替换旧报告。"""
+    store = MaterialAnalysisStore(tmp_path / "materials.json")
+    store.add_if_absent(
+        {"id": "old", "date": "2026-10-14", "metrics": {"material_count": 50, "total_material_spend": 25779.37}}
+    )
+    replacement = store.add_if_absent(
+        {"id": "new", "date": "2026-10-14", "metrics": {"material_count": 50, "total_material_spend": 28756.76}}
+    )
+    assert replacement["id"] == "new"
+    assert store.latest()["id"] == "new"
+
+    # 更差的（消耗更低）不能覆盖
+    worse = store.add_if_absent(
+        {"id": "worse", "date": "2026-10-14", "metrics": {"material_count": 50, "total_material_spend": 100.0}}
+    )
+    assert worse["id"] == "new"
+
+
+@pytest.mark.asyncio
+async def test_material_analysis_job_regenerates_stale_report(tmp_path):
+    """旧格式报告（没有 sampled_material_count）要重算一次，用上服务端精确总额。"""
+    from app.main import run_material_analysis_job
+
+    store = MaterialAnalysisStore(tmp_path / "materials.json")
+    store.add_if_absent(
+        {
+            "id": "old",
+            "date": "2026-10-14",
+            "metrics": {"material_count": 50, "total_material_spend": 25779.37},
+        }
+    )
+
+    class FakeReader:
+        def __init__(self):
+            self.calls = 0
+
+        async def read(self, _d):
+            raise AssertionError("应走 read_with_total")
+
+        async def read_with_total(self, _d):
+            self.calls += 1
+            return (
+                [MaterialMetric(material_id="a", name="素材A", spend=1000, roi=2.0, gmv=2000, orders=10)],
+                28756.76,
+            )
+
+    class FakeHub:
+        async def publish(self, _payload):
+            return None
+
+    reader = FakeReader()
+    state = SimpleNamespace(
+        latest_plan_snapshot=PlanSnapshot(id="plan-1", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        monitor_service=SimpleNamespace(latest_event=lambda: _event()),
+        material_analysis_store=store,
+        notification_hub=FakeHub(),
+        material_reader=reader,
+    )
+    report = await run_material_analysis_job(SimpleNamespace(state=state), analysis_date=date(2026, 10, 14))
+
+    assert reader.calls == 1
+    assert report["metrics"]["total_material_spend"] == 28756.76
+
+
+@pytest.mark.asyncio
+async def test_material_analysis_job_reuses_fresh_report(tmp_path):
+    """已经是新格式的报告，不能重复重算（否则每次调用都白读一遍）。"""
+    from app.main import run_material_analysis_job
+
+    store = MaterialAnalysisStore(tmp_path / "materials.json")
+    store.add_if_absent(
+        {
+            "id": "fresh",
+            "date": "2026-10-14",
+            "metrics": {"material_count": 50, "sampled_material_count": 50, "total_material_spend": 28756.76},
+        }
+    )
+
+    class FakeReader:
+        async def read_with_total(self, _d):
+            raise AssertionError("不该重算")
+
+    state = SimpleNamespace(
+        latest_plan_snapshot=PlanSnapshot(id="plan-1", name="计划一", status="active", budget=5000, roi_goal=2.5),
+        monitor_service=SimpleNamespace(latest_event=lambda: _event()),
+        material_analysis_store=store,
+        notification_hub=None,
+        material_reader=FakeReader(),
+    )
+    report = await run_material_analysis_job(SimpleNamespace(state=state), analysis_date=date(2026, 10, 14))
+    assert report["id"] == "fresh"
