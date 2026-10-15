@@ -67,6 +67,21 @@ def test_live_review_store_deduplicates_same_date(tmp_path):
     assert len(store.list_reviews()) == 1
 
 
+def test_review_store_lists_newest_first(tmp_path):
+    """UI 顶部必须是最新复盘 —— 补跑/跨天分段会让文件顺序乱掉。"""
+    store = LiveReviewStore(tmp_path / "reviews.json")
+    store.add_if_absent({"id": "old", "date": "2026-10-01", "report_markdown": "a"})
+    store.add_if_absent({"id": "new", "date": "2026-10-14", "report_markdown": "b"})
+    store.add_if_absent({"id": "mid", "date": "2026-10-07", "report_markdown": "c"})
+
+    assert [r["date"] for r in store.list_reviews()] == [
+        "2026-10-14",
+        "2026-10-07",
+        "2026-10-01",
+    ]
+    assert store.latest()["date"] == "2026-10-14"
+
+
 def test_build_live_review_uses_live_start_date_and_reports_unknown_target():
     snapshot = MetricSnapshot(
         captured_at=datetime(2026, 10, 4, 12, 0, tzinfo=UTC),

@@ -1039,10 +1039,13 @@ class LiveReviewStore:
         self.path = path
 
     def list_reviews(self) -> list[dict]:
-        return self._read()
+        # 按日期倒序（最新在前）。文件是按写入顺序追加的，补跑/跨天分段会让日期乱序，
+        # 直接返回会让 UI 顶部显示旧报告、最新的埋在下面甚至看不到。
+        items = self._read()
+        return sorted(items, key=lambda item: str(item.get("date") or ""), reverse=True)
 
     def latest(self) -> dict | None:
-        items = self._read()
+        items = self.list_reviews()
         return items[0] if items else None
 
     def upsert(self, review: dict) -> dict:
