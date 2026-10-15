@@ -379,3 +379,52 @@ async def test_generate_material_analysis_reads_previous_day(tmp_path):
 
     assert reader.dates == [date(2026, 10, 2), date(2026, 10, 1)]
     assert "较上一日" in report["report_markdown"]
+
+
+def test_material_analysis_store_lists_newest_first(tmp_path):
+    """UI 顶部必须是最新报告 —— 不能因为写入顺序让老报告排前面。"""
+    store = MaterialAnalysisStore(tmp_path / "materials.json")
+    store.add_if_absent({"id": "old", "date": "2026-10-01", "metrics": {"material_count": 1}})
+    store.add_if_absent({"id": "new", "date": "2026-10-14", "metrics": {"material_count": 50}})
+    store.add_if_absent({"id": "mid", "date": "2026-10-07", "metrics": {"material_count": 50}})
+
+    assert [i["date"] for i in store.list_analyses()] == [
+        "2026-10-14",
+        "2026-10-07",
+        "2026-10-01",
+    ]
+    assert store.latest()["id"] == "new"
+
+
+@pytest.mark.asyncio
+async def test_material_reader_connect_retries_then_succeeds(monkeypatch):
+    """connect_over_cdp 卡住/失败时要快速重试，而不是干等 3 分钟。"""
+    from app.execution.cdp import material_reader as mr
+
+    monkeypatch.setattr(mr.asyncio, "sleep", lambda *_: _noop())
+
+    class FakeChromium:
+        def __init__(self):
+            self.calls = 0
+
+        async def connect_over_cdp(self, endpoint, timeout=None):
+            self.calls += 1
+            assert timeout == mr.CDP_CONNECT_TIMEOUT_MS
+            if self.calls < 2:
+                raise RuntimeError("transient")
+            return "browser"
+
+    class FakePW:
+        def __init__(self):
+            self.chromium = FakeChromium()
+
+    reader = mr.CdpMaterialReader.__new__(mr.CdpMaterialReader)
+    reader.endpoint = "http://127.0.0.1:9222"
+    pw = FakePW()
+    result = await reader._connect(pw)
+    assert result == "browser"
+    assert pw.chromium.calls == 2
+
+
+async def _noop():
+    return None

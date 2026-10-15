@@ -44,6 +44,13 @@ MATERIAL_SPLIT_METRICS = (
 )
 
 
+# 连 CDP 调试浏览器的超时 / 重试。真实踩过：08:00 自动生成素材分析时，
+# connect_over_cdp 卡住直到 Playwright 默认的 180s 超时才失败，那一天素材明细为空。
+# 显式给更短的超时 + 重试，卡住就快速重来，而不是干等 3 分钟。
+CDP_CONNECT_TIMEOUT_MS = 30000
+CDP_CONNECT_RETRIES = 3
+
+
 
 def _number(container: dict, key: str) -> float | None:
     item = container.get(key)
@@ -444,9 +451,22 @@ class CdpMaterialReader:
             f"未找到「{room}」对应的投放管理计划，无法读取素材明细"
         )
 
+    async def _connect(self, playwright):
+        """带超时和重试地连上 CDP 调试浏览器。"""
+        last_exc: Exception | None = None
+        for attempt in range(CDP_CONNECT_RETRIES):
+            try:
+                return await playwright.chromium.connect_over_cdp(
+                    self.endpoint, timeout=CDP_CONNECT_TIMEOUT_MS
+                )
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                await asyncio.sleep(1.5 * (attempt + 1))
+        raise last_exc if last_exc is not None else RuntimeError("连接 CDP 失败")
+
     async def read(self, analysis_date: date, limit: int = 50) -> list[MaterialMetric]:
         async with async_playwright() as playwright:
-            browser = await playwright.chromium.connect_over_cdp(self.endpoint)
+            browser = await self._connect(playwright)
             try:
                 context = browser.contexts[0]
                 page = await self._ensure_target_page(context)
@@ -500,7 +520,7 @@ class CdpMaterialReader:
         当前直播场次；不传则退回整天（analysis_date 00:00:00 ~ 23:59:59）。
         """
         async with async_playwright() as playwright:
-            browser = await playwright.chromium.connect_over_cdp(self.endpoint)
+            browser = await self._connect(playwright)
             try:
                 context = browser.contexts[0]
                 page = await self._ensure_target_page(context)

@@ -433,10 +433,14 @@ class MaterialAnalysisStore:
         self.path = path
 
     def list_analyses(self) -> list[dict]:
-        return self._read()
+        # 按日期倒序（最新在前）。文件是按写入顺序追加的，老报告的日期可能排在前面，
+        # 直接返回会导致 UI 顶部显示很久以前的报告（真实踩过：顶部一直是旧报告，
+        # 最新的反而在最下面）。
+        items = self._read()
+        return sorted(items, key=lambda item: str(item.get("date") or ""), reverse=True)
 
     def latest(self) -> dict | None:
-        items = self._read()
+        items = self.list_analyses()
         return items[0] if items else None
 
     def add_if_absent(self, report: dict) -> dict:
