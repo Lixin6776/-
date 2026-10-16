@@ -324,6 +324,17 @@ export function DataSourcePanel() {
             （有 refresh_token 更好）填进来。填好点「测试连接」，通过后这里会显示"已配置"，
             系统会切到 <strong>API 优先</strong>；没配好时自动用 CDP，不影响正常盯盘。
           </p>
+          <p className="monitor-signal">
+            不会弄？
+            <a
+              href="https://github.com/Lixin6776/qianchuanzidongtoufang/blob/main/docs/开放平台API接入指南.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              看《开放平台 API 接入指南》
+            </a>
+            （注册应用 → 申请权限 → 配回调 → 生成授权链接 → 换 token）。
+          </p>
         </section>
       </div>
 
