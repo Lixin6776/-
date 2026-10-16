@@ -1025,3 +1025,24 @@ body { font-size: 14px; line-height: 1.5; }
   border: 1px solid var(--color-border);
   cursor: pointer;
 }
+
+/* --- 数据源：开放平台 API 凭据表单 --- */
+.api-conn-form {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.api-conn-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.api-conn-form input {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+.api-conn-form .live-watch-actions { margin-top: 4px; }

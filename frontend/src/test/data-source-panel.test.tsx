@@ -12,7 +12,9 @@ vi.mock("../lib/api", () => ({
   getLocalConfig: (...a: unknown[]) => getLocalConfig(...a),
   saveLocalConfig: (...a: unknown[]) => saveLocalConfig(...a),
   connectCdp: vi.fn(),
-  resumeLiveWatch: vi.fn()
+  resumeLiveWatch: vi.fn(),
+  saveApiConnection: vi.fn().mockResolvedValue({ configured: true }),
+  testApiConnection: vi.fn().mockResolvedValue({ ok: true, message: "API 连接成功" })
 }));
 
 import { DataSourcePanel } from "../components/DataSourcePanel";
@@ -48,7 +50,13 @@ test("数据源窗口同时展示 CDP 和 API 两条链路，并标出当前生�
   expect(screen.getByText(/千川页面 4 个/)).toBeInTheDocument();
   // API 未配置要说清楚
   expect(screen.getByText("未配置")).toBeInTheDocument();
-  expect(screen.getByText(/需要先在巨量引擎开放平台申请应用/)).toBeInTheDocument();
+  // API 现在有真正的配置窗口（之前只是个占位说明）
+  expect(screen.getByLabelText("App ID")).toBeInTheDocument();
+  expect(screen.getByLabelText("App Secret")).toBeInTheDocument();
+  expect(screen.getByLabelText("广告主 ID")).toBeInTheDocument();
+  expect(screen.getByLabelText("Access Token")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存凭据" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "测试连接" })).toBeInTheDocument();
   // 当前生效链路
   expect(screen.getByText("CDP（本机浏览器）")).toBeInTheDocument();
 });

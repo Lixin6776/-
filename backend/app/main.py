@@ -37,6 +37,7 @@ from app.execution.cdp.plan_reader import CdpPlanReader
 from app.execution.cdp.plan_split_reader import CdpPlanSplitReader
 from app.services.analytics import ComputedMetrics
 from app.services.api_client import OceanEngineApiClient
+from app.services.api_config import load_api_config
 from app.services.cdp_connection import connect as cdp_connect
 from app.services.feishu import FeishuConfigStore, FeishuNotifier, FeishuQrAuthService
 from app.services.live_review import (
@@ -243,6 +244,7 @@ async def lifespan(application: FastAPI):
     ops_chat_store = OpsChatStore()
     site_change_store = SiteChangeStore()
     load_llm_config(settings)
+    load_api_config(settings)
     Base.metadata.create_all(bind=engine)
 
     def current_profile() -> MonitorProfile:

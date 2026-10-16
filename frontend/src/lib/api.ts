@@ -131,10 +131,52 @@ export async function decideLearningSuggestion(id: string, decision: "accept" | 
   if (!response.ok) throw new Error("Suggestion decision failed");
   return response.json();
 }
-export async function getApiConnectionStatus() {
+export type ApiConnectionStatus = {
+  configured: boolean;
+  provider_preference: "api" | "cdp";
+  base_url: string;
+  app_id: string;
+  advertiser_id: number;
+  token_expires_at: number;
+  has_secret: boolean;
+  has_access_token: boolean;
+  has_refresh_token: boolean;
+};
+
+export type ApiConnectionConfig = {
+  base_url: string;
+  app_id: string;
+  app_secret: string;
+  access_token: string;
+  refresh_token: string;
+  advertiser_id: number;
+};
+
+export async function getApiConnectionStatus(): Promise<ApiConnectionStatus> {
   const response = await fetch(`${API_BASE}/api/api-connection/status`);
   if (!response.ok) throw new Error("Failed to load API connection status");
   return response.json();
+}
+
+export async function saveApiConnection(
+  config: ApiConnectionConfig
+): Promise<ApiConnectionStatus> {
+  const response = await fetch(`${API_BASE}/api/api-connection/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) throw new Error("Failed to save API connection");
+  return response.json();
+}
+
+export async function testApiConnection(): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_BASE}/api/api-connection/test`, { method: "POST" });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body?.detail || "API 连接测试失败");
+  }
+  return body;
 }
 
 export async function getCurrentPlanSnapshot() {

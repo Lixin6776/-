@@ -16,4 +16,8 @@ class TokenService:
         return self.config.api_configured
 
     def should_refresh(self, now: int) -> bool:
+        # expires_at == 0 = 没记录过期时间。这时不能瞎刷新 ——
+        # 否则只有 access_token（没 refresh_token）的用户每次都会走到刷新分支直接报错。
+        if not self.expires_at:
+            return False
         return self.expires_at - now < 300

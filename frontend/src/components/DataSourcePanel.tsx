@@ -6,17 +6,14 @@ import {
   getCdpConnection,
   getLocalConfig,
   resumeLiveWatch,
+  saveApiConnection,
   saveLocalConfig,
+  testApiConnection,
+  type ApiConnectionStatus,
   type CdpConnectionStatus
 } from "../lib/api";
 
-type ApiStatus = {
-  configured: boolean;
-  provider_preference: "api" | "cdp";
-  base_url?: string;
-  advertiser_id?: number;
-  token_expires_at?: number;
-};
+type ApiStatus = ApiConnectionStatus;
 
 /**
  * 数据源：一个窗口管两条读取链路。
@@ -32,6 +29,15 @@ export function DataSourcePanel() {
   // 本机配置：盯哪个直播间 / 哪个账户（不用改 .env）
   const [form, setForm] = useState({ room_name: "", aavid: "" });
   const [effective, setEffective] = useState({ room_name: "", aavid: "" });
+  // 开放平台凭据（保存在本机 .local/api_config.json；密钥留空 = 不改动已存的）
+  const [apiForm, setApiForm] = useState({
+    base_url: "https://api.oceanengine.com",
+    app_id: "",
+    app_secret: "",
+    access_token: "",
+    refresh_token: "",
+    advertiser_id: ""
+  });
 
   async function refresh() {
     try {
@@ -40,7 +46,15 @@ export function DataSourcePanel() {
       setCdp(null);
     }
     try {
-      setApi(await getApiConnectionStatus());
+      const status = await getApiConnectionStatus();
+      setApi(status);
+      // 只把非密钥字段回填到表单；密钥不回显，留空表示不改
+      setApiForm((current) => ({
+        ...current,
+        base_url: status.base_url || current.base_url,
+        app_id: status.app_id || current.app_id,
+        advertiser_id: status.advertiser_id ? String(status.advertiser_id) : current.advertiser_id
+      }));
     } catch {
       setApi(null);
     }
@@ -92,6 +106,47 @@ export function DataSourcePanel() {
       setNotice(next.message || (next.connected ? "数据源已连接" : "还没连上"));
     } catch {
       setNotice("连接失败，确认本机装了 Chrome 再试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveApi() {
+    setBusy(true);
+    setNotice("");
+    try {
+      const next = await saveApiConnection({
+        base_url: apiForm.base_url.trim() || "https://api.oceanengine.com",
+        app_id: apiForm.app_id.trim(),
+        app_secret: apiForm.app_secret.trim(),
+        access_token: apiForm.access_token.trim(),
+        refresh_token: apiForm.refresh_token.trim(),
+        advertiser_id: Number(apiForm.advertiser_id) || 0
+      });
+      setApi(next);
+      setApiForm((current) => ({
+        ...current,
+        app_secret: "",
+        access_token: "",
+        refresh_token: ""
+      }));
+      setNotice("API 凭据已保存（存在本机 .local/api_config.json，不进仓库）。下一步点「测试连接」。");
+    } catch {
+      setNotice("保存失败，检查本地服务。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleTestApi() {
+    setBusy(true);
+    setNotice("正在测试开放平台连接（会去拉一次广告主信息）...");
+    try {
+      const result = await testApiConnection();
+      setNotice(result.message || "API 连接成功");
+      await refresh();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "API 连接测试失败");
     } finally {
       setBusy(false);
     }
@@ -192,9 +247,82 @@ export function DataSourcePanel() {
                   : "还没配置凭据"}
             </li>
           </ul>
+          <div className="api-conn-form">
+            <label>
+              接口地址
+              <input
+                aria-label="API 接口地址"
+                value={apiForm.base_url}
+                onChange={(e) => setApiForm({ ...apiForm, base_url: e.target.value })}
+              />
+            </label>
+            <label>
+              App ID
+              <input
+                aria-label="App ID"
+                placeholder="开放平台应用的 App ID"
+                value={apiForm.app_id}
+                onChange={(e) => setApiForm({ ...apiForm, app_id: e.target.value })}
+              />
+            </label>
+            <label>
+              App Secret
+              <input
+                aria-label="App Secret"
+                type="password"
+                placeholder={api?.has_secret ? "已保存（留空不改）" : "应用密钥"}
+                value={apiForm.app_secret}
+                onChange={(e) => setApiForm({ ...apiForm, app_secret: e.target.value })}
+              />
+            </label>
+            <label>
+              广告主 ID
+              <input
+                aria-label="广告主 ID"
+                placeholder="advertiser_id（纯数字）"
+                value={apiForm.advertiser_id}
+                onChange={(e) => setApiForm({ ...apiForm, advertiser_id: e.target.value })}
+              />
+            </label>
+            <label>
+              Access Token
+              <input
+                aria-label="Access Token"
+                type="password"
+                placeholder={api?.has_access_token ? "已保存（留空不改）" : "授权后拿到的 access_token"}
+                value={apiForm.access_token}
+                onChange={(e) => setApiForm({ ...apiForm, access_token: e.target.value })}
+              />
+            </label>
+            <label>
+              Refresh Token
+              <input
+                aria-label="Refresh Token"
+                type="password"
+                placeholder={api?.has_refresh_token ? "已保存（留空不改）" : "可选：有它可自动续期"}
+                value={apiForm.refresh_token}
+                onChange={(e) => setApiForm({ ...apiForm, refresh_token: e.target.value })}
+              />
+            </label>
+            <div className="live-watch-actions">
+              <button className="button-outline" type="button" onClick={handleSaveApi} disabled={busy}>
+                保存凭据
+              </button>
+              <button
+                className="button-primary"
+                type="button"
+                onClick={handleTestApi}
+                disabled={busy || !api?.configured}
+              >
+                测试连接
+              </button>
+            </div>
+          </div>
           <p className="monitor-signal">
-            尚未开放：需要先在巨量引擎开放平台申请应用并获得授权。
-            配好后这里会显示「测试连接」，届时可切换为 API 优先。
+            怎么拿到凭据：去巨量引擎开放平台申请应用 → 拿到 <strong>App ID / Secret</strong>
+            → 用应用完成<strong>广告主授权</strong> → 把 <strong>access_token</strong>
+            （有 refresh_token 更好）填进来。填好点「测试连接」，通过后这里会显示"已配置"，
+            系统会切到 <strong>API 优先</strong>；没配好时自动用 CDP，不影响正常盯盘。
           </p>
         </section>
       </div>

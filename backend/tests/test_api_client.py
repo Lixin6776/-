@@ -35,12 +35,35 @@ def test_refresh_failure_raises_authentication_error():
         api_app_secret="secret",
         api_access_token="expired",
         api_refresh_token="refresh",
+        api_token_expires_at=10,
+    )
+    client = OceanEngineApiClient(
+        config=config,
+        transport=httpx.MockTransport(handler),
+        now=lambda: 1_000,   # 已过期 → 会走刷新分支
+    )
+    with pytest.raises(ApiAuthenticationError):
+        client.request("GET", "/open_api/v1.0/ad/get/")
+
+
+def test_unknown_expiry_uses_access_token_without_refresh():
+    """没填过期时间（expires_at=0）时直接用 access_token，不能因为"以为过期了"去刷新报错。"""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["auth"] = request.headers["Authorization"]
+        return httpx.Response(200, json={"code": 0, "data": {}})
+
+    config = Settings(
+        api_app_id="1",
+        api_app_secret="s",
+        api_access_token="tok-1",
         api_token_expires_at=0,
     )
     client = OceanEngineApiClient(
         config=config,
         transport=httpx.MockTransport(handler),
-        now=lambda: 1,
+        now=lambda: 0,
     )
-    with pytest.raises(ApiAuthenticationError):
-        client.request("GET", "/open_api/v1.0/ad/get/")
+    client.request("GET", "/open_api/v1.0/qianchuan/advertiser/info/")
+    assert seen["auth"] == "Bearer tok-1"
