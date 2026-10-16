@@ -972,7 +972,8 @@ body { font-size: 14px; line-height: 1.5; }
 .onboarding-hint { color: var(--color-text-secondary); }
 
 /* --- 直播运营助手：发送图片 --- */
-.ops-chat-panel .composer { grid-template-columns: auto 1fr auto; }
+.ops-chat-panel .composer,
+.chat-panel .composer { grid-template-columns: auto 1fr auto; }
 .composer-attach {
   padding: 0 10px;
   border: 1px solid var(--color-border);

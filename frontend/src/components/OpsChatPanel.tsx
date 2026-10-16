@@ -9,17 +9,7 @@ import {
   sendOpsChat,
   type OpsChatMessage
 } from "../lib/api";
-
-const MAX_IMAGES = 4;
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+import { MAX_CHAT_IMAGES as MAX_IMAGES, pickImages, type PickedImage } from "../lib/images";
 
 type Job = {
   id: string;
@@ -47,7 +37,7 @@ export function OpsChatPanel({
   const [pending, setPending] = useState(false);
   const [briefing, setBriefing] = useState(false);
   const [error, setError] = useState("");
-  const [attached, setAttached] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [attached, setAttached] = useState<PickedImage[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const seenIncomingId = useRef("");
   const seenIds = useRef<Set<string>>(new Set());
@@ -85,17 +75,7 @@ export function OpsChatPanel({
   }, [messages.length]);
 
   async function pickFiles(files: FileList | File[] | null) {
-    if (!files) return;
-    const picked: { name: string; dataUrl: string }[] = [];
-    for (const file of Array.from(files)) {
-      if (attached.length + picked.length >= MAX_IMAGES) break;
-      if (!file.type.startsWith("image/")) continue;
-      try {
-        picked.push({ name: file.name || "图片", dataUrl: await readAsDataUrl(file) });
-      } catch {
-        /* 读不出来就跳过 */
-      }
-    }
+    const picked = await pickImages(files, MAX_IMAGES - attached.length);
     if (picked.length) {
       setAttached((current) => [...current, ...picked].slice(0, MAX_IMAGES));
       setError("");

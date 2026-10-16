@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 
 import App from "../App";
@@ -132,7 +132,28 @@ test("chat panel renders the assistant response", async () => {
   fireEvent.change(screen.getByLabelText("输入投放问题"), { target: { value: "看看 ROI" } });
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
   expect(await screen.findByText("当前 ROI 为 2.5。")).toBeInTheDocument();
-  expect(onSend).toHaveBeenCalledWith("看看 ROI");
+  expect(onSend).toHaveBeenCalledWith("看看 ROI", []);
+});
+
+test("chat panel can attach an image and sends it to the model", async () => {
+  const onSend = vi.fn().mockResolvedValue({ message: "收到图片" });
+  const { container } = render(<ChatPanel onSend={onSend} />);
+  const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+  const file = new File([new Uint8Array([137, 80, 78, 71])], "shot.png", {
+    type: "image/png"
+  });
+  fireEvent.change(fileInput, { target: { files: [file] } });
+
+  await waitFor(() => expect(container.querySelector(".composer-thumb img")).toBeTruthy());
+  fireEvent.change(screen.getByLabelText("输入投放问题"), { target: { value: "看这个" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+  await waitFor(() => expect(onSend).toHaveBeenCalled());
+  const [text, images] = onSend.mock.calls[0];
+  expect(text).toBe("看这个");
+  expect(images).toHaveLength(1);
+  expect(String(images[0])).toMatch(/^data:image\/png;base64,/);
+  expect(await screen.findByAltText("聊天图片")).toBeInTheDocument();
 });
 
 test("chat panel exposes a structured action preview for confirmation", async () => {

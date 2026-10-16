@@ -162,8 +162,8 @@ export default function App() {
     setIncomingMessage({ id: review.id, content: review.report_markdown });
   }, [monitorEvent]);
 
-  async function handleSend(message: string): Promise<ChatReply> {
-    const result = await sendChat(message);
+  async function handleSend(message: string, images: string[] = []): Promise<ChatReply> {
+    const result = await sendChat(message, images);
     return {
       message: result.message as string,
       preview: result.preview as ActionPreview | undefined

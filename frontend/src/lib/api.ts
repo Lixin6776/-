@@ -6,11 +6,11 @@ export async function getActiveProfile() {
   return response.json();
 }
 
-export async function sendChat(message: string) {
+export async function sendChat(message: string, images: string[] = []) {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message })
+    body: JSON.stringify({ message, images })
   });
   if (!response.ok) throw new Error("Chat request failed");
   return response.json();

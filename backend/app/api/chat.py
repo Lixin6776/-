@@ -2,7 +2,7 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,8 @@ class ChatRequest(BaseModel):
     message: str
     proposed_action: ActionEnvelope | None = None
     include_learning_context: bool = False
+    # 图片以 data URL 传入（data:image/png;base64,...）
+    images: list[str] = Field(default_factory=list)
 
 
 def get_llm_provider():
@@ -140,6 +142,7 @@ async def chat(
             profile,
             learning_context,
             read_only_context=read_only_context,
+            images=payload.images or None,
         )
     except Exception:
         logger.exception("llm_provider_failed")

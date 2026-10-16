@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { ReportMessage } from "./ReportMessage";
+import { MAX_CHAT_IMAGES, pickImages, type PickedImage } from "../lib/images";
 
 export type ActionPreview = {
   action_name: string;
@@ -93,6 +94,7 @@ type Message = {
   role: "system" | "user" | "assistant";
   content: string;
   preview?: ActionPreview;
+  images?: string[];
 };
 
 const INITIAL_MESSAGE: Message = {
@@ -106,7 +108,7 @@ export function ChatPanel({
   incomingMessage,
   resetKey = 0
 }: {
-  onSend?: (message: string) => Promise<ChatReply>;
+  onSend?: (message: string, images: string[]) => Promise<ChatReply>;
   onOpenConfirmation?: (preview: ActionPreview) => void;
   incomingMessage?: { id: string; content: string } | null;
   /** 变化时清空聊天记录（每场直播开始时由外层触发） */
@@ -115,6 +117,8 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [pending, setPending] = useState(false);
+  const [attached, setAttached] = useState<PickedImage[]>([]);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const seenIncomingId = useRef("");
 
   // 新场次开播 -> 清空上一场聊天记录
@@ -133,15 +137,25 @@ export function ChatPanel({
     ]);
   }, [incomingMessage]);
 
+  async function addFiles(files: FileList | File[] | null) {
+    const picked = await pickImages(files, MAX_CHAT_IMAGES - attached.length);
+    if (picked.length) setAttached((current) => [...current, ...picked].slice(0, MAX_CHAT_IMAGES));
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = input.trim();
-    if (!message || !onSend || pending) return;
+    const images = attached.map((item) => item.dataUrl);
+    if ((!message && images.length === 0) || !onSend || pending) return;
     setInput("");
-    setMessages((current) => [...current, { role: "user", content: message }]);
+    setAttached([]);
+    setMessages((current) => [
+      ...current,
+      { role: "user", content: message, images: images.length ? images : undefined }
+    ]);
     setPending(true);
     try {
-      const reply = await onSend(message);
+      const reply = await onSend(message, images);
       setMessages((current) => [
         ...current,
         { role: "assistant", content: reply.message, preview: reply.preview }
@@ -174,6 +188,15 @@ export function ChatPanel({
               <span className={message.role === "system" ? "message-role-system" : "message-role"}>
                 {message.role === "user" ? "你" : message.role === "assistant" ? "助手" : "系统"}
               </span>
+              {message.images?.length ? (
+                <div className="message-images">
+                  {message.images.map((src, index) => (
+                    <a key={index} href={src} target="_blank" rel="noreferrer">
+                      <img src={src} alt="聊天图片" />
+                    </a>
+                  ))}
+                </div>
+              ) : null}
               <MessageContent content={message.content} />
               {message.preview ? (
                 <div className="action-preview-card">
@@ -193,10 +216,58 @@ export function ChatPanel({
           </article>
         ))}
       </div>
-      <form className="composer" onSubmit={submit}>
+      {attached.length ? (
+        <div className="composer-attachments">
+          {attached.map((item, index) => (
+            <span className="composer-thumb" key={index}>
+              <img src={item.dataUrl} alt={item.name} />
+              <button
+                type="button"
+                aria-label="移除图片"
+                onClick={() => setAttached((current) => current.filter((_, i) => i !== index))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <form
+        className="composer"
+        onSubmit={submit}
+        onPaste={(event) => {
+          const files = Array.from(event.clipboardData?.files || []);
+          if (files.length) {
+            event.preventDefault();
+            addFiles(files);
+          }
+        }}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => {
+            addFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+        <button
+          className="composer-attach"
+          type="button"
+          title="发送图片（也可直接粘贴截图）"
+          aria-label="发送图片"
+          disabled={pending || attached.length >= MAX_CHAT_IMAGES}
+          onClick={() => fileRef.current?.click()}
+        >
+          📎
+        </button>
         <input
           aria-label="输入投放问题"
-          placeholder="询问 ROI、消耗、成交或直播表现"
+          placeholder="询问 ROI、消耗、成交或直播表现（可发截图）"
           value={input}
           onChange={(event) => setInput(event.target.value)}
         />
