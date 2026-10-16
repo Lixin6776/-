@@ -4,11 +4,16 @@
 和 /api/chat（本场盯盘对话）分开：这里是跨场次保留、按天归档的运营对话。
 """
 
+import base64
+import re
+import uuid
+from pathlib import Path
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -26,9 +31,40 @@ from app.services.profiles import StrategyProfileService
 router = APIRouter(prefix="/api/ops-chat", tags=["ops-chat"])
 logger = structlog.get_logger()
 
+# 聊天里发的图片存这里（本机，不进仓库）
+CHAT_UPLOAD_DIR = Path(__file__).resolve().parents[3] / ".local" / "chat_uploads"
+MAX_CHAT_IMAGES = 4
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+_DATA_URL_RE = re.compile(
+    r"^data:image/(png|jpe?g|webp|gif);base64,(.+)$", re.IGNORECASE | re.DOTALL
+)
+
+
+def _save_chat_image(data_url: str) -> str | None:
+    """把 data URL 落成本机文件，返回可访问的地址；格式/大小不对就丢掉。"""
+    match = _DATA_URL_RE.match(data_url or "")
+    if not match:
+        return None
+    ext = "jpg" if match.group(1).lower() in {"jpeg", "jpg"} else match.group(1).lower()
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, TypeError):
+        return None
+    if not raw or len(raw) > MAX_IMAGE_BYTES:
+        return None
+    try:
+        CHAT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{uuid.uuid4().hex}.{ext}"
+        (CHAT_UPLOAD_DIR / name).write_bytes(raw)
+    except OSError:
+        return None
+    return f"/api/ops-chat/uploads/{name}"
+
 
 class OpsMessageRequest(BaseModel):
-    message: str
+    message: str = ""
+    # 图片以 data URL 传入（data:image/png;base64,...），避免引入 multipart 依赖
+    images: list[str] = Field(default_factory=list)
 
 
 def _llm_provider() -> DeepSeekProvider:
@@ -62,7 +98,20 @@ async def send_message(
     hub = getattr(request.app.state, "notification_hub", None)
     profile = _active_profile(db)
 
-    store.append("user", payload.message, kind="chat")
+    saved_images: list[str] = []
+    llm_images: list[str] = []
+    for data_url in payload.images[:MAX_CHAT_IMAGES]:
+        url = _save_chat_image(data_url)
+        if url is not None:
+            saved_images.append(url)
+            llm_images.append(data_url)
+
+    store.append(
+        "user",
+        payload.message or "（图片）",
+        kind="chat",
+        meta={"images": saved_images} if saved_images else None,
+    )
 
     context = collect_ops_context(request.app.state, profile=profile)
     answer = ""
@@ -72,6 +121,7 @@ async def send_message(
             profile,
             read_only_context=context,
             persona=PERSONA,
+            images=llm_images or None,
         )
         answer = result.message
     except Exception:  # noqa: BLE001
@@ -127,3 +177,12 @@ async def generate_briefing_now(request: Request, day: str | None = None) -> dic
             }
         )
     return message
+
+
+@router.get("/uploads/{name}")
+def get_upload(name: str) -> FileResponse:
+    """读取聊天里发过的图片（只允许访问上传目录内的文件）。"""
+    path = CHAT_UPLOAD_DIR / Path(name).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path)

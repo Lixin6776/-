@@ -397,7 +397,13 @@ export type OpsChatMessage = {
   role: "user" | "assistant";
   kind?: "briefing" | "review" | "chat";
   content: string;
+  meta?: { images?: string[] };
 };
+
+/** 聊天里图片地址是后端相对路径，拼成可直接给 <img src> 用的完整地址。 */
+export function opsChatImageUrl(path: string): string {
+  return /^https?:/i.test(path) ? path : `${API_BASE}${path}`;
+}
 
 export async function getOpsChatMessages(limit = 100): Promise<OpsChatMessage[]> {
   const response = await fetch(`${API_BASE}/api/ops-chat/messages?limit=${limit}`);
@@ -405,11 +411,14 @@ export async function getOpsChatMessages(limit = 100): Promise<OpsChatMessage[]>
   return response.json();
 }
 
-export async function sendOpsChat(message: string): Promise<OpsChatMessage> {
+export async function sendOpsChat(
+  message: string,
+  images: string[] = []
+): Promise<OpsChatMessage> {
   const response = await fetch(`${API_BASE}/api/ops-chat/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message })
+    body: JSON.stringify({ message, images })
   });
   if (!response.ok) throw new Error("Failed to send ops chat message");
   return response.json();

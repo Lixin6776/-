@@ -122,6 +122,7 @@ class Orchestrator:
         learning_context: dict | None = None,
         read_only_context: dict | None = None,
         persona: str | None = None,
+        images: list[str] | None = None,
     ) -> ChatResult:
         """persona：给不同入口注入角色设定（如「直播运营助手」）。
 
@@ -143,10 +144,17 @@ class Orchestrator:
             '"message":"给用户看的中文回答","preview":null}。'
             "如果不方便输出 JSON，也可以直接输出自然语言分析。"
         )
+        user_content: str | list[dict] = message
+        if images:
+            # 多模态：文本 + 图片（data URL）。用户发截图时走这条。
+            user_content = [{"type": "text", "text": message or "帮我看下这张图片。"}]
+            user_content.extend(
+                {"type": "image_url", "image_url": {"url": url}} for url in images
+            )
         response = await self.llm.complete(
             [
                 LLMMessage(role="system", content=context),
-                LLMMessage(role="user", content=message),
+                LLMMessage(role="user", content=user_content),
             ],
             tools=[],
         )

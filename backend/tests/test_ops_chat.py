@@ -210,3 +210,70 @@ def test_concurrent_appends_do_not_lose_messages(tmp_path):
 
     contents = {m["content"] for m in store.list_messages(limit=50)}
     assert contents == {f"消息{i}" for i in range(8)}
+
+
+# --- 聊天发送图片（截图）------------------------------------------------------
+
+
+def test_save_chat_image_writes_file_and_rejects_garbage(tmp_path, monkeypatch):
+    import base64
+
+    from app.api import ops_chat as api
+
+    monkeypatch.setattr(api, "CHAT_UPLOAD_DIR", tmp_path / "uploads")
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\n12345").decode()
+
+    url = api._save_chat_image(f"data:image/png;base64,{png}")
+    assert url is not None and url.startswith("/api/ops-chat/uploads/")
+    saved = (tmp_path / "uploads" / url.rsplit("/", 1)[-1]).read_bytes()
+    assert saved.startswith(b"\x89PNG")
+
+    # 非图片 data URL / 非 data URL / 空内容都要被拒
+    assert api._save_chat_image("data:text/plain;base64,aGk=") is None
+    assert api._save_chat_image("hello") is None
+    assert api._save_chat_image("data:image/png;base64,") is None
+
+
+def test_orchestrator_sends_images_as_multimodal_parts():
+    import asyncio
+
+    from app.services.llm.base import LLMResponse
+    from app.services.orchestrator import Orchestrator
+
+    captured: dict = {}
+
+    class FakeLLM:
+        async def complete(self, messages, tools):
+            captured["messages"] = messages
+            return LLMResponse(content="看到了，是红色")
+
+    result = asyncio.run(
+        Orchestrator(FakeLLM()).handle(
+            "这是什么颜色", None, images=["data:image/png;base64,AAAA"]
+        )
+    )
+
+    user = captured["messages"][-1]
+    assert isinstance(user.content, list)
+    assert user.content[0] == {"type": "text", "text": "这是什么颜色"}
+    assert user.content[1]["type"] == "image_url"
+    assert user.content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+    assert "红色" in result.message
+
+
+def test_orchestrator_image_only_message_gets_default_prompt():
+    import asyncio
+
+    from app.services.llm.base import LLMResponse
+    from app.services.orchestrator import Orchestrator
+
+    captured: dict = {}
+
+    class FakeLLM:
+        async def complete(self, messages, tools):
+            captured["messages"] = messages
+            return LLMResponse(content="好的")
+
+    asyncio.run(Orchestrator(FakeLLM()).handle("", None, images=["data:image/png;base64,AAAA"]))
+    user = captured["messages"][-1]
+    assert user.content[0]["text"]  # 空消息也要给模型一个默认提示，不能是空串

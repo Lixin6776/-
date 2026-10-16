@@ -5,9 +5,21 @@ import { ReportMessage } from "./ReportMessage";
 import {
   generateOpsBriefing,
   getOpsChatMessages,
+  opsChatImageUrl,
   sendOpsChat,
   type OpsChatMessage
 } from "../lib/api";
+
+const MAX_IMAGES = 4;
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 type Job = {
   id: string;
@@ -35,6 +47,8 @@ export function OpsChatPanel({
   const [pending, setPending] = useState(false);
   const [briefing, setBriefing] = useState(false);
   const [error, setError] = useState("");
+  const [attached, setAttached] = useState<{ name: string; dataUrl: string }[]>([]);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const seenIncomingId = useRef("");
   const seenIds = useRef<Set<string>>(new Set());
   const streamRef = useRef<HTMLDivElement | null>(null);
@@ -70,21 +84,47 @@ export function OpsChatPanel({
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages.length]);
 
+  async function pickFiles(files: FileList | File[] | null) {
+    if (!files) return;
+    const picked: { name: string; dataUrl: string }[] = [];
+    for (const file of Array.from(files)) {
+      if (attached.length + picked.length >= MAX_IMAGES) break;
+      if (!file.type.startsWith("image/")) continue;
+      try {
+        picked.push({ name: file.name || "图片", dataUrl: await readAsDataUrl(file) });
+      } catch {
+        /* 读不出来就跳过 */
+      }
+    }
+    if (picked.length) {
+      setAttached((current) => [...current, ...picked].slice(0, MAX_IMAGES));
+      setError("");
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || pending) return;
+    const images = attached.map((item) => item.dataUrl);
+    if ((!text && images.length === 0) || pending) return;
     setInput("");
+    setAttached([]);
     setError("");
     setPending(true);
     // 先把我的话显示出来，等服务端返回再补助手的回答
     const localId = `local-${Date.now()}`;
     setMessages((current) => [
       ...current,
-      { id: localId, created_at: new Date().toISOString(), role: "user", content: text }
+      {
+        id: localId,
+        created_at: new Date().toISOString(),
+        role: "user",
+        content: text || "（图片）",
+        meta: images.length ? { images } : undefined
+      }
     ]);
     try {
-      const reply = await sendOpsChat(text);
+      const reply = await sendOpsChat(text, images);
       setMessages((current) => [...current, reply]);
       seenIds.current.add(reply.id);
     } catch {
@@ -149,11 +189,27 @@ export function OpsChatPanel({
                   {message.kind === "briefing" ? "每日运营汇报" : "直播复盘"}
                 </span>
               ) : null}
-              {/^#{2,3}\s/.test(message.content) ? (
-                <ReportMessage content={message.content} />
-              ) : (
-                <p className="message-text">{message.content}</p>
-              )}
+              {message.meta?.images?.length ? (
+                <div className="message-images">
+                  {message.meta.images.map((src, index) => (
+                    <a
+                      key={index}
+                      href={opsChatImageUrl(src)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <img src={opsChatImageUrl(src)} alt="聊天图片" />
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              {message.content && message.content !== "（图片）" ? (
+                /^#{2,3}\s/.test(message.content) ? (
+                  <ReportMessage content={message.content} />
+                ) : (
+                  <p className="message-text">{message.content}</p>
+                )
+              ) : null}
             </div>
           </article>
         ))}
@@ -161,10 +217,58 @@ export function OpsChatPanel({
 
       {error ? <p className="monitor-signal">{error}</p> : null}
 
-      <form className="composer" onSubmit={submit}>
+      {attached.length ? (
+        <div className="composer-attachments">
+          {attached.map((item, index) => (
+            <span className="composer-thumb" key={index}>
+              <img src={item.dataUrl} alt={item.name} />
+              <button
+                type="button"
+                aria-label="移除图片"
+                onClick={() => setAttached((current) => current.filter((_, i) => i !== index))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <form
+        className="composer"
+        onSubmit={submit}
+        onPaste={(event) => {
+          const files = Array.from(event.clipboardData?.files || []);
+          if (files.length) {
+            event.preventDefault();
+            pickFiles(files);
+          }
+        }}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => {
+            pickFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+        <button
+          className="composer-attach"
+          type="button"
+          title="发送图片（也可直接粘贴截图）"
+          aria-label="发送图片"
+          disabled={pending || attached.length >= MAX_IMAGES}
+          onClick={() => fileRef.current?.click()}
+        >
+          📎
+        </button>
         <input
           aria-label="和直播运营助手对话"
-          placeholder="问它：今天有什么问题？昨天那场为什么 ROI 掉了？"
+          placeholder="问它：今天有什么问题？昨天那场为什么 ROI 掉了？（可发图片/截图）"
           value={input}
           onChange={(event) => setInput(event.target.value)}
         />

@@ -970,3 +970,57 @@ body { font-size: 14px; line-height: 1.5; }
 .onboarding-mark { width: 1em; }
 .onboarding-title { font-weight: 600; }
 .onboarding-hint { color: var(--color-text-secondary); }
+
+/* --- 直播运营助手：发送图片 --- */
+.ops-chat-panel .composer { grid-template-columns: auto 1fr auto; }
+.composer-attach {
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+.composer-attach:disabled { opacity: 0.5; cursor: not-allowed; }
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.composer-thumb { position: relative; display: inline-block; }
+.composer-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+.composer-thumb button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: #333;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.message-images img {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
