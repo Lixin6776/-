@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from contextlib import suppress
 from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
@@ -346,6 +347,23 @@ class LiveBoardSnapshotReader:
         snapshot.live_room_id = (query.get("live_room_id") or [None])[0]
         return snapshot
 
+    @staticmethod
+    async def _close_duplicate_board_pages(context, keep, url: str) -> None:
+        """关掉"同一场"的其它大屏页，只留刚打开的这个。"""
+        room_id = (parse_qs(urlparse(url).query).get("live_room_id") or [""])[0]
+        if not room_id:
+            return
+        for page in list(context.pages):
+            if page is keep:
+                continue
+            target_url = page.url or ""
+            if "board-next" not in target_url or "live_room_id" not in target_url:
+                continue
+            if room_id not in target_url:
+                continue
+            with suppress(Exception):
+                await page.close()
+
     # --- target discovery -----------------------------------------------------
     async def _candidates(self) -> list[dict]:
         try:
@@ -526,7 +544,12 @@ class LiveBoardSnapshotReader:
                     await popup.wait_for_timeout(2500)
                     url = popup.url or ""
                     if "board-next" in url and "live_room_id" in url:
+                        # 关掉同一场的重复大屏页：这套"点直播大屏开弹窗"的逻辑反复执行会
+                        # 在浏览器里堆一串同场 tab（实测堆到 8 个），越堆越卡。
+                        await self._close_duplicate_board_pages(context, keep=popup, url=url)
                         return url
+                    with suppress(Exception):
+                        await popup.close()  # 开出来的页面不对 → 关掉，别留垃圾
                     return None
                 finally:
                     await playwright.stop()

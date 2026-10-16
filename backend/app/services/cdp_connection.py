@@ -190,7 +190,11 @@ async def connect(
     )
     if status["connected"]:
         status["opened_pages"] = await ensure_pages(endpoint)
-        status["needs_login"] = bool(status.get("login_pages"))
+        # 浏览器里可能同时留着一个 /login 标签（历史遗留），但千川页面是正常登录的。
+        # 只有"有登录页 **且** 一个千川页都没有"时，才算真的没登录 —— 否则会误报"需要登录千川"。
+        status["needs_login"] = bool(status.get("login_pages")) and not status.get(
+            "qianchuan_pages"
+        )
         status["message"] = (
             "数据源已连接"
             if not status["needs_login"]

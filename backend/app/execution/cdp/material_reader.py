@@ -402,6 +402,26 @@ class CdpMaterialReader:
                 await page.close()
         return None
 
+    async def _dedupe_detail_pages(self, context) -> None:
+        """同一个 adId 的投放管理详情页只留一个。
+
+        素材读取失败/重试时会反复开详情页，浏览器里会越堆越多（实测同时出现多个
+        同 adId 的 detail 页）。这里按 adId 去重，只保留第一个。
+        """
+        seen: set[str] = set()
+        for item in list(context.pages):
+            url = item.url or ""
+            if DETAIL_PAGE_MARKER not in url:
+                continue
+            ad_id = self._plan_id_from_url(url)
+            if not ad_id:
+                continue
+            if ad_id in seen:
+                with suppress(Exception):
+                    await item.close()
+            else:
+                seen.add(ad_id)
+
     async def _ensure_target_page(self, context):
         """Open the detail page belonging to the configured live room.
 
@@ -410,6 +430,7 @@ class CdpMaterialReader:
         happens to be open silently reports another room's materials, so when a
         room name is configured we resolve the matching plan first.
         """
+        await self._dedupe_detail_pages(context)
         room = self.plan_room_name
         if not room:
             return await self._ensure_page(context)

@@ -620,3 +620,32 @@ def test_day_account_metrics_picks_target_day_last_reading(tmp_path):
     assert m.spend == 38725.68     # 取的是 10-14 当天最后一条，不是 10-15
     assert m.roi == 2.47
     assert m.orders == 523
+
+
+@pytest.mark.asyncio
+async def test_material_reader_dedupes_same_ad_detail_pages():
+    """同 adId 的详情页只留一个（反复读素材会给浏览器堆一堆 detail 页）。"""
+    from app.execution.cdp import material_reader as mr
+
+    class FakePage:
+        def __init__(self, url):
+            self.url = url
+            self.closed = False
+
+        async def close(self):
+            self.closed = True
+
+    class FakeContext:
+        def __init__(self, pages):
+            self.pages = pages
+
+    base = "https://qianchuan.jinritemai.com/overall-prom/detail?aavid=1&adId="
+    keep = FakePage(base + "111")
+    dup = FakePage(base + "111")
+    other = FakePage(base + "222")
+    reader = mr.CdpMaterialReader.__new__(mr.CdpMaterialReader)
+    await reader._dedupe_detail_pages(FakeContext([keep, dup, other]))
+
+    assert dup.closed is True
+    assert keep.closed is False
+    assert other.closed is False   # 不同 adId 不动

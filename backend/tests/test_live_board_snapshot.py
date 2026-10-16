@@ -142,3 +142,37 @@ def test_room_id_of_url():
     url = "https://qianchuan.jinritemai.com/board-next?live_room_id=7694791024207481600&aavid=1"
     assert reader._room_id_of_url(url) == "7694791024207481600"
     assert reader._room_id_of_url(None) == ""
+
+
+class _FakePage:
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class _FakeContext:
+    def __init__(self, pages) -> None:
+        self.pages = pages
+
+
+@pytest.mark.asyncio
+async def test_close_duplicate_board_pages_keeps_only_same_room_dup():
+    """反复开「直播大屏」会在浏览器堆一串同场 tab —— 要关掉重复的，别的别动。"""
+    base = "https://qianchuan.jinritemai.com/board-next?live_room_id="
+    keep = _FakePage(base + "AAA")
+    dup = _FakePage(base + "AAA")
+    other_room = _FakePage(base + "BBB")
+    other_page = _FakePage("https://qianchuan.jinritemai.com/overall-prom?aavid=1")
+    context = _FakeContext([keep, dup, other_room, other_page])
+
+    await LiveBoardSnapshotReader._close_duplicate_board_pages(
+        context, keep=keep, url=keep.url
+    )
+
+    assert dup.closed is True          # 同场重复 → 关
+    assert keep.closed is False        # 保留刚开的那个
+    assert other_room.closed is False  # 别的场次不动
+    assert other_page.closed is False  # 非大屏页不动
