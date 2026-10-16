@@ -1299,7 +1299,12 @@ def build_watch_report(
         "spend_split": split,
         "problems": problems,
         "adjustments": adjustments,
+        # 注意区分两个"操作"：
+        #   operations          = 工具自己执行的操作（只读模式恒为空）
+        #   platform_operations = 千川平台日志里「你手动做的操作」（结构化保存）
+        # 学习/回看要的是后者 —— 之前只把它写进 markdown 文本，没法统计。
         "operations": operations,
+        "platform_operations": list(platform_ops or []),
         "report_markdown": "\n".join(lines),
         "live_started_at": (
             getattr(event, "live_started_at", None).isoformat()
