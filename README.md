@@ -117,6 +117,11 @@ copy backend\.env.example backend\.env
 **支持哪些平台？**
 目前只做**巨量千川「全域投放 · 直播间」**（抖音电商直播）。别的投放场景没有适配。
 
+**想用开放平台 API（更稳），凭据怎么弄？**
+看 **[开放平台API接入指南.md](docs/开放平台API接入指南.md)**：从注册开发者、申请接口权限、配回调地址，
+到生成授权链接、换 access token、填进「数据源 → API 连接」。
+不配也能用（默认走 CDP 读浏览器页面）；配好后工具会自动切到「API 优先」。
+
 **Mac / Linux 能用吗？**
 暂时**只支持 Windows**（启动脚本是 PowerShell / cmd，读数据走 Windows 的 Chrome）。
 
