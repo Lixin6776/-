@@ -99,3 +99,44 @@ async def test_async_monitor_emits_cdp_metrics_and_source():
     assert event.metrics.roi == 2.5
     assert event.metrics.gpm == 1000
     assert event.metrics.online_viewers == 120
+
+
+@pytest.mark.asyncio
+async def test_ended_tick_notifies_review_only_once(tmp_path):
+    """大屏读到「已结束」时每轮都会尝试生成复盘 —— 但同一份只能通知一次。
+
+    真实踩过：条件没判，每 5 分钟就把同一份复盘重发一遍，聊天里刷了 59 条。
+    """
+    from app.services.live_review import LiveReviewStore
+
+    snapshot = MetricSnapshot(
+        captured_at="2026-10-12T07:00:00+08:00",
+        live_started_at="2026-10-12T07:00:00+08:00",
+        freshness="fresh",
+        plan_status="ended",
+        plan_budget=0,
+        spend=1000,
+        gmv=2000,
+        orders=10,
+        views=500,
+        online_viewers=20,
+        roi=2.0,
+        gpm=2000,
+    )
+
+    async def provider():
+        return SnapshotReading(snapshot=snapshot, source="cdp")
+
+    notified: list = []
+    service = AsyncMonitorService(
+        provider,
+        review_store=LiveReviewStore(tmp_path / "reviews.json"),
+        review_notifier=lambda review: notified.append(review),
+    )
+
+    await service.tick()
+    await service.tick()
+    await service.tick()
+
+    assert len(notified) == 1          # 只通知第一次
+    assert notified[0]["date"] == "2026-10-12"

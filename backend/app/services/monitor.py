@@ -120,19 +120,22 @@ class _MonitorCore:
                     baselines = self.baselines_provider()
                 except Exception:  # noqa: BLE001
                     baselines = None
-            review = self.review_store.add_if_absent(
-                build_live_review(
-                    snapshot,
-                    metrics,
-                    profile,
-                    snapshot.captured_at,
-                    avg_online=avg_online,
-                    online_samples=samples,
-                    roi_target=plan_target,
-                    baselines=baselines,
-                )
+            built_review = build_live_review(
+                snapshot,
+                metrics,
+                profile,
+                snapshot.captured_at,
+                avg_online=avg_online,
+                online_samples=samples,
+                roi_target=plan_target,
+                baselines=baselines,
             )
-            if self.review_notifier is not None:
+            review = self.review_store.add_if_absent(built_review)
+            # 关键：只有**这次真的新增了**复盘才通知。
+            # add_if_absent 命中已存在的同一天复盘时会返回旧的 dict（不是 built_review 本体），
+            # 之前无条件 notify 的后果是：只要大屏读到「已结束」，每 5 分钟就把同一份复盘
+            # 重发一遍（真实踩过：10-12 那份在聊天里刷了 59 条）。
+            if self.review_notifier is not None and review is built_review:
                 self.review_notifier(review)
         event = MonitorEvent(
             captured_at=snapshot.captured_at,
