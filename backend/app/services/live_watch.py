@@ -1882,6 +1882,28 @@ class LiveWatchService:
             audit_notes=audit_notes,
             threshold_lines=resolved_lines,
         )
+        # 历史账本回流：把本账户实测的操作净效应附在报表里
+        try:
+            ledger = self._ledger()
+        except Exception:  # noqa: BLE001
+            ledger = []
+        if ledger:
+            report["ledger"] = ledger
+            extra = ["", "### 历史账本（本账户实测）", ""]
+            labels = {"positive": "正向", "negative": "负向", "neutral": "中性"}
+            for row in ledger:
+                extra.append(
+                    f"- {row.get('operation')}：净效应 {float(row.get('net_effect') or 0):+.2f}"
+                    f"（n={row.get('n')}，{labels.get(str(row.get('verdict')), row.get('verdict'))}）"
+                )
+            extra.append("")
+            extra.append(
+                "> 已扣掉账户自然漂移；样本 < 20 不出结论；"
+                "这是**观察到相关**，不是因果，做决策时请结合当下判断。"
+            )
+            report["report_markdown"] = (
+                str(report.get("report_markdown") or "") + "\n".join(extra)
+            )
         self.store.append(report)
         self._last_run = datetime.now(UTC)
         self._last_report_at = self._last_run
@@ -2026,6 +2048,30 @@ class LiveWatchService:
             await self._publish_notice(
                 "数据源（调试浏览器）断开后已自动重连，盯盘继续。"
             )
+
+    def _ledger(self) -> list[dict]:
+        """历史账本（本账户实测的操作净效应），缓存 30 分钟。
+
+        让每份盯盘报表都带上"这类操作历史上到底有没有用"。
+        """
+        now = datetime.now(UTC)
+        cached = getattr(self, "_ledger_cache", None)
+        if cached is not None and (now - cached[0]).total_seconds() < 1800:
+            return cached[1]
+        rows: list[dict] = []
+        try:
+            from app.services.ops_outcome import compute_ops_outcome
+
+            result = compute_ops_outcome(self.store.list_logs(limit=1500))
+            rows = [
+                row
+                for row in result.get("operations", [])
+                if int(row.get("n") or 0) >= int(result.get("min_sample") or 20)
+            ]
+        except Exception:  # noqa: BLE001
+            rows = []
+        self._ledger_cache = (now, rows)
+        return rows
 
     async def _run(self) -> None:
         while True:
