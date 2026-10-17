@@ -342,3 +342,93 @@ def test_no_reconnector_is_safe(tmp_path):
     service = _service_reconnect(tmp_path, None)
     service._consecutive_failures = 9
     asyncio.run(service._maybe_reconnect_cdp())  # 不该抛异常
+
+
+# --- 本场结束的兜底判定 -------------------------------------------------------
+
+
+def _ended_probe_event(spend: float, started):
+    from datetime import UTC, datetime
+
+    from app.services.analytics import ComputedMetrics
+    from app.services.monitor import MonitorEvent
+
+    return MonitorEvent(
+        captured_at=datetime(2026, 10, 10, 8, 0, tzinfo=UTC),
+        freshness="fresh",
+        banner="",
+        level="normal",
+        reason="",
+        profile_version=1,
+        metrics=ComputedMetrics(
+            roi=None if spend == 0 else 2.0,
+            gpm=None if spend == 0 else 2000.0,
+            spend=spend,
+            gmv=spend * 2,
+            orders=0,
+            online_viewers=0,
+            views=0,
+        ),
+        plan_status="active",
+        plan_budget=0.0,
+        source="cdp",
+        live_started_at=started,
+    )
+
+
+def test_zero_spend_stagnation_marks_session_ended(tmp_path):
+    """直播结束后大屏常读到 spend=0 —— 不能因为 0 就永远判不出结束。"""
+    from datetime import UTC, datetime
+
+    from app.services.monitor import MonitorEvent
+
+    started = datetime(2026, 10, 10, 6, 0, tzinfo=UTC)
+    event = _ended_probe_event(0.0, started)
+
+    class _Monitor:
+        def tick(self):
+            return event
+
+    async def not_live():
+        return "not-live"
+
+    service = LiveWatchService(
+        _Monitor(),
+        _Hub(),
+        store=SqliteWatchLogStore(tmp_path / "w.sqlite3", tmp_path / "none.json"),
+        session_state_provider=not_live,
+        state_path=tmp_path / "state.json",
+    )
+
+    report = None
+    for _ in range(3):
+        report = asyncio.run(service.tick_once())
+
+    assert report is not None
+    # 真正决定"会不会停盯盘"的是这个标记（_run 循环看到它就停）
+    assert service._pending_stop_reason
+
+
+def test_long_session_without_spend_growth_marks_ended(tmp_path):
+    """兜底：场次 >20h 且消耗 60 分钟没涨 → 判定结束（不依赖页面文案）。"""
+    from datetime import UTC, datetime, timedelta
+
+    started = datetime.now(UTC) - timedelta(hours=30)
+    event = _ended_probe_event(5000.0, started)
+
+    class _Monitor:
+        def tick(self):
+            return event
+
+    service = LiveWatchService(
+        _Monitor(),
+        _Hub(),
+        store=SqliteWatchLogStore(tmp_path / "w.sqlite3", tmp_path / "none.json"),
+        state_path=tmp_path / "state.json",
+    )
+    service._last_spend_value = 5000.0
+    service._last_spend_growth_at = datetime.now(UTC) - timedelta(minutes=90)
+
+    report = asyncio.run(service.tick_once())
+    assert report is not None
+    assert service._pending_stop_reason

@@ -1384,6 +1384,9 @@ class LiveWatchService:
         self._last_live_started: datetime | None = None
         self._recent_spends: list[float] = []
         self._stagnant_ticks = 0
+        # 最后一次看到"消耗增长"的时间 —— 用来兜底判断本场是否已结束
+        self._last_spend_value = 0.0
+        self._last_spend_growth_at: datetime | None = None
         # --- 断线恢复相关 ---------------------------------------------------
         # desired_running：用户「想不想让它跑」。只有用户点「停止盯盘」才会变 False；
         # 关窗口 / 关机 / 后端重启都不算停止，恢复后要接着跑。
@@ -1595,6 +1598,17 @@ class LiveWatchService:
         status["resumed"] = True
         status["resume_note"] = note
         status["resume_report"] = report.get("id") if isinstance(report, dict) else None
+        # 补读这一轮如果判定本场已结束，就立刻停 —— 否则 _run 可能已经进入 5 分钟 sleep，
+        # 要等下一轮才看到停止标记（用户看到的就是"直播结束了还在盯盘"）。
+        if self._pending_stop_reason:
+            reason = self._pending_stop_reason
+            self._pending_stop_reason = None
+            await self.stop()
+            await self._publish_notice(reason)
+            status = self.status()
+            status["resumed"] = True
+            status["resume_note"] = note
+            status["stopped_reason"] = reason
         return status
 
     async def tick_once(self, wait: bool = True) -> dict:
@@ -1660,10 +1674,15 @@ class LiveWatchService:
         # 数据停滞检测：连续 3 次消耗完全不变 → 场次可能已结束或大屏未刷新
         audit_notes: list[str] = []   # 自检记录（本轮做了什么核对），最后写进报表
         spend_now = float(event.metrics.spend or 0)
+        if spend_now > self._last_spend_value + 0.01:
+            self._last_spend_value = spend_now
+            self._last_spend_growth_at = datetime.now(UTC)
         self._recent_spends.append(spend_now)
         self._recent_spends = self._recent_spends[-5:]
         is_stagnant = False
-        if len(self._recent_spends) >= 3 and spend_now > 0:
+        # 注意：不能再要求 spend_now > 0 —— 直播结束后大屏经常读到 0，
+        # 那样会永远判不出"停滞"，也就永远检测不到本场结束。
+        if len(self._recent_spends) >= 3:
             tail = {round(v, 2) for v in self._recent_spends[-3:]}
             if len(tail) == 1:
                 self._stagnant_ticks += 1
@@ -1706,7 +1725,34 @@ class LiveWatchService:
                     "投放管理页显示当前没有在播场次 —— 按收场快照处理，"
                     "并会为本场生成复盘"
                 )
-        session_started = getattr(event, "live_started_at", None) or self._last_live_started
+        # 读失败时 event.live_started_at 会是 None；再回退到"本进程上次成功读到的"
+        # 以及"持久化状态里的场次开始时间" —— 否则重启后遇到读失败，
+        # 结束判定会因为没有场次开始时间而永远不触发。
+        session_started = (
+            getattr(event, "live_started_at", None)
+            or self._last_live_started
+            or self._session_started_at
+        )
+        # 第二道保险：场次已经跑了很久、且消耗长期不增长 → 认定已结束。
+        # 为什么需要：大屏页头经常不渲染"已结束"，投放管理页也可能还挂着上一场的
+        # 「直播大屏」入口，导致 session_state 误判成 live。
+        # 只对"超过 20 小时且 60 分钟没涨消耗"生效 —— 真正在花钱的超长连播不会被误停。
+        if event.plan_status != "ended" and session_started is not None:
+            now_utc = datetime.now(UTC)
+            started = session_started
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=UTC)
+            running_hours = (now_utc - started).total_seconds() / 3600
+            # 进程刚重启时还没记录过"消耗增长时间"，就回退到场次开始时间 ——
+            # 否则重启后这个兜底永远不触发。
+            reference = self._last_spend_growth_at or started
+            idle_minutes = (now_utc - reference).total_seconds() / 60
+            if running_hours > 20 and idle_minutes > 60:
+                event.plan_status = "ended"
+                audit_notes.append(
+                    f"本场已连续 {running_hours:.1f} 小时、且消耗已 {idle_minutes:.0f} 分钟没有增长"
+                    " —— 判定直播已结束（不依赖页面上的「已结束」文案）"
+                )
         if event.plan_status == "ended" and session_started is not None:
             session_key = session_started.isoformat()
             if self._ended_handled_for != session_key:
