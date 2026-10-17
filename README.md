@@ -145,6 +145,10 @@ copy backend\.env.example backend\.env
 
 ## 常用排查
 
+> 改完代码的**完整自检清单**（服务健康 / 测试 / 接口冒烟 / 日志 / 盯盘专项）：见
+> **[docs/runbooks/self-check.md](docs/runbooks/self-check.md)**。
+
+
 | 现象 | 处理 |
 | --- | --- |
 | 面板显示「数据源：未连接」 | 点「连接数据源」；提示要登录就在弹出的窗口登录千川 |
