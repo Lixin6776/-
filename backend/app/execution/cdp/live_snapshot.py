@@ -544,6 +544,17 @@ class LiveBoardSnapshotReader:
                     await popup.wait_for_timeout(2500)
                     url = popup.url or ""
                     if "board-next" in url and "live_room_id" in url:
+                        # 校验「这一场到底还在不在播」：投放管理页上的「直播大屏」入口
+                        # 有时还挂着上一场，点出来的是【已结束】的旧大屏 —— 直接返回 URL
+                        # 会让上层误判成 live，导致直播结束后盯盘一直不停。
+                        try:
+                            text = await popup.evaluate("() => document.body.innerText")
+                        except Exception:  # noqa: BLE001
+                            text = ""
+                        if "已结束" in str(text)[:800]:
+                            with suppress(Exception):
+                                await popup.close()
+                            return None
                         # 关掉同一场的重复大屏页：这套"点直播大屏开弹窗"的逻辑反复执行会
                         # 在浏览器里堆一串同场 tab（实测堆到 8 个），越堆越卡。
                         await self._close_duplicate_board_pages(context, keep=popup, url=url)
