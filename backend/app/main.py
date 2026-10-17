@@ -22,6 +22,7 @@ from app.api.llm_connection import router as llm_connection_router
 from app.api.material_analyses import router as material_analyses_router
 from app.api.monitor import router as monitor_router
 from app.api.notifications import router as notifications_router
+from app.api.ops_outcome import router as ops_outcome_router
 from app.api.ops_chat import router as ops_chat_router
 from app.api.plans import router as plans_router
 from app.api.profiles import router as profiles_router
@@ -794,6 +795,7 @@ app.include_router(plans_router)
 app.include_router(learning_router)
 app.include_router(live_watch_router)
 app.include_router(live_reviews_router)
+app.include_router(ops_outcome_router)
 app.include_router(material_analyses_router)
 app.include_router(notifications_router)
 app.include_router(ops_chat_router)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { createStrategyProfile, getActiveProfile } from "../lib/api";
+import { OpsOutcomePanel } from "./OpsOutcomePanel";
 
 type Profile = {
   version: number;
@@ -146,6 +147,8 @@ export function ThresholdPanel() {
       <p className="monitor-signal">
         说明：ROI 目标不在这里设——它跟着千川计划里的「综合营销ROI目标」走，避免盯盘和复盘用到两个目标。
       </p>
+
+      <OpsOutcomePanel />
     </section>
   );
 }

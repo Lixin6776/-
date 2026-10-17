@@ -6,7 +6,17 @@ const createStrategyProfile = vi.fn();
 
 vi.mock("../lib/api", () => ({
   getActiveProfile: (...a: unknown[]) => getActiveProfile(...a),
-  createStrategyProfile: (...a: unknown[]) => createStrategyProfile(...a)
+  createStrategyProfile: (...a: unknown[]) => createStrategyProfile(...a),
+  // 决策窗口现在也会渲染《操作反馈表》
+  getOpsOutcome: vi.fn().mockResolvedValue({
+    baseline: { n: 0, median_delta: null, positive_rate: null, net_effect: null, operation: "（基线）" },
+    treated: { n: 0, median_delta: null, positive_rate: null, net_effect: null },
+    operations: [],
+    velocity_strata: [],
+    window_minutes: 10,
+    min_sample: 20,
+    note: "测试"
+  })
 }));
 
 import { ThresholdPanel } from "../components/ThresholdPanel";

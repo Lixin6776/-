@@ -179,6 +179,12 @@ export async function testApiConnection(): Promise<{ ok: boolean; message: strin
   return body;
 }
 
+export async function getOpsOutcome() {
+  const response = await fetch(`${API_BASE}/api/ops-outcome`);
+  if (!response.ok) throw new Error("Failed to load ops outcome");
+  return response.json();
+}
+
 export async function getCurrentPlanSnapshot() {
   const response = await fetch(`${API_BASE}/api/plans/current`);
   if (!response.ok) throw new Error("Failed to load current plan snapshot");
