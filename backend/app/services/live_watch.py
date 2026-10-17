@@ -1768,10 +1768,14 @@ class LiveWatchService:
                         )
                     except Exception:  # noqa: BLE001
                         pass
-                self._pending_stop_reason = (
-                    "本场直播已结束：复盘已生成，盯盘已自动停止。"
-                    "下一场开播后，请在「直播盯盘」里手动开始。"
-                )
+        # 幂等：只要本轮仍判定"已结束"，就确保停止标记存在。
+        # （第一次设完可能被别的路径消费/清掉，之后 _ended_handled_for 已置位就不再设，
+        #  结果就是"检测到结束了、但盯盘一直不停" —— 真实踩过。）
+        if event.plan_status == "ended" and session_started is not None:
+            self._pending_stop_reason = (
+                "本场直播已结束：复盘已生成，盯盘已自动停止。"
+                "下一场开播后，请在「直播盯盘」里手动开始。"
+            )
         if is_stagnant:
             stale_minutes = self._stagnant_ticks * (self.interval_seconds // 60)
             if event.plan_status == "ended":
